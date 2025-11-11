@@ -12,7 +12,7 @@ class HandlerNode {
   private readonly handlers = new Set<EventHandler>()
   private wildcard: HandlerNode | null = null
   constructor(
-    public pattern: string = "",
+    public pattern: string = EMPTY,
     ...children: HandlerNode[]
   ) {
     this.children = children
