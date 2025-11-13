@@ -300,7 +300,7 @@ export class HandlerNode {
     }
   }
 
-  _call(args: any[]): boolean {
+  private _call(args: any[]): boolean {
     for (const handler of this.persists.values()) {
       handler(...args)
     }
