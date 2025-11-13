@@ -48,27 +48,24 @@ export class HandlerNode {
     const stack: [number, HandlerNode][] = []
 
     let current: HandlerNode | null = this as HandlerNode
-    while (patterns.length > 0) {
-      const pattern = patterns[0]
-      if (pattern === EMPTY) {
-        if (!current.wildcard) {
-          break
+    outer: for (let pattern of patterns) {
+      while (pattern !== EMPTY) {
+        const [index, child, exact] = current.exact(pattern)
+        if (!child) {
+          break outer
         }
 
-        patterns.shift()
-        stack.push([NONE_INDEX, current])
-        current = current.wildcard
-        continue
+        pattern = exact ? EMPTY : pattern.slice(child.pattern.length)
+        stack.push([index, current])
+        current = child
       }
 
-      const [index, child, exact] = current.exact(pattern)
-      if (!child) {
-        break
+      if (!current.wildcard) {
+        break outer
       }
 
-      patterns[0] = exact ? EMPTY : pattern.slice(child.pattern.length)
-      stack.push([index, current])
-      current = child
+      stack.push([NONE_INDEX, current])
+      current = current.wildcard
     }
 
     if (stack.length !== length) {
