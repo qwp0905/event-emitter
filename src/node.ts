@@ -46,12 +46,14 @@ export class HandlerNode {
 
     const stack: [number, HandlerNode][] = []
 
-    let current: HandlerNode | null = this as HandlerNode
-    outer: for (let pattern of patterns) {
+    const end = patterns.length - 1
+    let current: HandlerNode = this as HandlerNode
+    // eslint-disable-next-line prefer-const
+    for (let [i, pattern] of patterns.entries()) {
       while (pattern !== EMPTY) {
         const [index, child, exact] = current.exact(pattern)
         if (!child) {
-          break outer
+          return
         }
 
         pattern = exact ? EMPTY : pattern.slice(child.pattern.length)
@@ -59,8 +61,12 @@ export class HandlerNode {
         current = child
       }
 
+      if (i === end) {
+        break
+      }
+
       if (!current.wildcard) {
-        break outer
+        return
       }
 
       stack.push([NONE_INDEX, current])
@@ -75,27 +81,21 @@ export class HandlerNode {
     }
 
     while (stack.length > 0) {
-      const [index, node] = stack.pop()!
+      const [index, parent] = stack.pop()!
       if (index === NONE_INDEX) {
-        if (node.wildcard?.isEmpty()) {
-          node.wildcard = null
+        if (parent.wildcard?.isEmpty()) {
+          parent.wildcard = null
         }
-        if (!node.hasToShrink()) {
-          break
+      } else {
+        if (parent.children[index].isEmpty()) {
+          parent.children.splice(index, 1)
         }
+      }
 
-        node.shrink()
+      if (!parent.hasToShrink()) {
         continue
       }
-
-      const child = node.children[index]
-      if (child.isEmpty()) {
-        node.children.splice(index, 1)
-      }
-      if (!node.hasToShrink()) {
-        break
-      }
-      node.shrink()
+      parent.shrink()
     }
   }
 
