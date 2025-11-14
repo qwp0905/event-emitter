@@ -51,20 +51,22 @@ export class EventEmitter {
     return this
   }
 
-  emit(pattern: EventPattern, ...args: any[]) {
+  emit(pattern: EventPattern, ...args: any[]): boolean {
     if (typeof pattern === "string") {
-      this.patterns.call(pattern, args)
-      return
+      return this.patterns.call(pattern, args)
     }
 
     const handlers = this.permanent.get(pattern) ?? this.temporary.get(pattern)
     if (!handlers) {
-      return
+      return false
     }
 
+    let called = false
     for (const handler of handlers) {
       handler(...args)
+      called ||= true
     }
+    return called
   }
 
   addListener = this.on
@@ -87,6 +89,19 @@ export class EventEmitter {
     }
 
     return this
+  }
+
+  listeners(pattern: EventPattern): EventHandler[] {
+    if (typeof pattern === "string") {
+      return this.patterns.find(pattern)
+    }
+
+    return [...(this.permanent.get(pattern) ?? []), ...(this.temporary.get(pattern) ?? [])]
+  }
+  rawListeners = this.listeners
+
+  listenerCount(pattern: EventPattern) {
+    return this.listeners(pattern).length
   }
 
   eventNames(): EventPattern[] {

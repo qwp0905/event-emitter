@@ -288,11 +288,12 @@ export class HandlerNode {
   }
 
   private _call(args: any[]): boolean {
+    let called = false
     for (const handler of this.permanent.values()) {
       handler(...args)
+      called ||= true
     }
 
-    let called = false
     for (const handler of this.temporary.values()) {
       handler(...args)
       called ||= true
@@ -301,7 +302,8 @@ export class HandlerNode {
     return called
   }
 
-  call(pattern: string, args: any[]) {
+  call(pattern: string, args: any[]): boolean {
+    let called = false
     const queue: [string[], HandlerNode][] = [[[pattern], this]]
     const stack: [number[], HandlerNode][] = []
 
@@ -310,12 +312,13 @@ export class HandlerNode {
       const indexes: number[] = []
 
       if (current.wildcard?._call(args)) {
+        called ||= true
         indexes.push(NONE_INDEX)
       }
 
       inner: for (const pattern of patterns) {
         if (pattern === EMPTY) {
-          current._call(args)
+          called ||= current._call(args)
           continue inner
         }
 
@@ -362,7 +365,7 @@ export class HandlerNode {
       inner: for (const index of indexes) {
         if (index === NONE_INDEX) {
           const child = parent.wildcard!
-          if (child.isEmpty()) {
+          if (!child.isEmpty()) {
             parent.wildcard = null
           }
           continue inner
@@ -382,5 +385,38 @@ export class HandlerNode {
       }
       parent.shrink()
     }
+
+    return called
+  }
+
+  find(pattern: string): EventHandler[] {
+    const patterns = normalize(pattern).split(WILDCARD)
+
+    const end = patterns.length - 1
+    let current: HandlerNode = this as HandlerNode
+    // eslint-disable-next-line prefer-const
+    for (let [i, pattern] of patterns.entries()) {
+      while (pattern !== EMPTY) {
+        const [, child, exact] = current.exact(pattern)
+        if (!child) {
+          return []
+        }
+
+        pattern = exact ? EMPTY : pattern.slice(child.pattern.length)
+        current = child
+      }
+
+      if (i === end) {
+        break
+      }
+
+      if (!current.wildcard) {
+        return []
+      }
+
+      current = current.wildcard
+    }
+
+    return [...current.permanent.values(), ...current.temporary.values()]
   }
 }
