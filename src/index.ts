@@ -4,8 +4,8 @@ type EventPattern = string | symbol
 
 export class EventEmitter {
   private readonly patterns = new HandlerNode()
-  private readonly persists = new Map<symbol, Set<EventHandler>>()
-  private readonly temporaries = new Map<symbol, Set<EventHandler>>()
+  private readonly permanent = new Map<symbol, Set<EventHandler>>()
+  private readonly temporary = new Map<symbol, Set<EventHandler>>()
 
   on(pattern: EventPattern, handler: EventHandler) {
     if (typeof pattern === "string") {
@@ -13,9 +13,9 @@ export class EventEmitter {
       return this
     }
 
-    const exists = this.persists.get(pattern)
+    const exists = this.permanent.get(pattern)
     if (!exists) {
-      this.persists.set(pattern, new Set([handler]))
+      this.permanent.set(pattern, new Set([handler]))
     } else {
       exists.add(handler)
     }
@@ -28,9 +28,9 @@ export class EventEmitter {
       return this
     }
 
-    const exists = this.temporaries.get(pattern)
+    const exists = this.temporary.get(pattern)
     if (!exists) {
-      this.temporaries.set(pattern, new Set([handler]))
+      this.temporary.set(pattern, new Set([handler]))
     } else {
       exists.add(handler)
     }
@@ -42,7 +42,7 @@ export class EventEmitter {
       return this
     }
 
-    const handlers = this.persists.get(pattern) ?? this.temporaries.get(pattern)
+    const handlers = this.permanent.get(pattern) ?? this.temporary.get(pattern)
     if (!handlers) {
       return this
     }
@@ -57,7 +57,7 @@ export class EventEmitter {
       return
     }
 
-    const handlers = this.persists.get(pattern) ?? this.temporaries.get(pattern)
+    const handlers = this.permanent.get(pattern) ?? this.temporary.get(pattern)
     if (!handlers) {
       return
     }
@@ -76,13 +76,13 @@ export class EventEmitter {
         this.patterns.remove(pattern)
         break
       case "symbol":
-        this.persists.delete(pattern)
-        this.temporaries.delete(pattern)
+        this.permanent.delete(pattern)
+        this.temporary.delete(pattern)
         break
       case "undefined":
         this.patterns.clear()
-        this.persists.clear()
-        this.temporaries.clear()
+        this.permanent.clear()
+        this.temporary.clear()
         break
     }
 
@@ -90,6 +90,6 @@ export class EventEmitter {
   }
 
   eventNames(): EventPattern[] {
-    return [...this.persists.keys(), ...this.temporaries.keys(), ...this.patterns.patterns()]
+    return [...this.permanent.keys(), ...this.temporary.keys(), ...this.patterns.patterns()]
   }
 }

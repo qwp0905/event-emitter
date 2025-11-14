@@ -12,8 +12,8 @@ function normalize(pattern: string) {
 
 export class HandlerNode {
   private children: HandlerNode[]
-  private persists: Set<EventHandler> = new Set()
-  private temporaries: Set<EventHandler> = new Set()
+  private permanent: Set<EventHandler> = new Set()
+  private temporary: Set<EventHandler> = new Set()
   private wildcard: HandlerNode | null = null
 
   constructor(
@@ -24,8 +24,8 @@ export class HandlerNode {
   }
 
   clear() {
-    this.persists.clear()
-    this.temporaries.clear()
+    this.permanent.clear()
+    this.temporary.clear()
     this.wildcard = null
     this.children.length = 0
   }
@@ -73,9 +73,9 @@ export class HandlerNode {
     }
 
     if (!handler) {
-      current.persists.clear()
-      current.temporaries.clear()
-    } else if (!current.persists.delete(handler) || !current.temporaries.delete(handler)) {
+      current.permanent.clear()
+      current.temporary.clear()
+    } else if (!current.permanent.delete(handler) || !current.temporary.delete(handler)) {
       return
     }
 
@@ -109,15 +109,15 @@ export class HandlerNode {
     this.pattern += replace.pattern
     this.children = replace.children
     this.wildcard = replace.wildcard
-    this.persists = replace.persists
-    this.temporaries = replace.temporaries
+    this.permanent = replace.permanent
+    this.temporary = replace.temporary
   }
 
   private hasToShrink(): boolean {
     return (
       this.children.length < 2 &&
-      this.persists.size === 0 &&
-      this.temporaries.size === 0 &&
+      this.permanent.size === 0 &&
+      this.temporary.size === 0 &&
       !this.wildcard &&
       this.pattern !== EMPTY
     )
@@ -144,8 +144,8 @@ export class HandlerNode {
 
   private isEmpty() {
     return (
-      this.persists.size === 0 &&
-      this.temporaries.size === 0 &&
+      this.permanent.size === 0 &&
+      this.temporary.size === 0 &&
       this.children.length === 0 &&
       !this.wildcard
     )
@@ -200,9 +200,9 @@ export class HandlerNode {
       return current
     }
     if (isTemporary) {
-      current.temporaries.add(handler)
+      current.temporary.add(handler)
     } else {
-      current.persists.add(handler)
+      current.permanent.add(handler)
     }
     return current
   }
@@ -242,7 +242,7 @@ export class HandlerNode {
       const [prefix, current] = stack.pop()!
       const pattern = prefix.concat(current.pattern)
 
-      if (current.temporaries.size > 0 || current.persists.size > 0) {
+      if (current.temporary.size > 0 || current.permanent.size > 0) {
         yield pattern
       }
 
@@ -290,16 +290,16 @@ export class HandlerNode {
   }
 
   private _call(args: any[]): boolean {
-    for (const handler of this.persists.values()) {
+    for (const handler of this.permanent.values()) {
       handler(...args)
     }
 
     let called = false
-    for (const handler of this.temporaries.values()) {
+    for (const handler of this.temporary.values()) {
       handler(...args)
       called ||= true
     }
-    this.temporaries.clear()
+    this.temporary.clear()
     return called
   }
 
