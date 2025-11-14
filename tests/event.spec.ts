@@ -177,7 +177,11 @@ describe("EventEmitter", () => {
     expect(handler4).toHaveBeenCalledTimes(1)
     expect(handler5).toHaveBeenCalledTimes(1)
 
-    ev.removeAllListeners()
+    ev.removeAllListeners("abcc")
+    ev.removeAllListeners("a*c")
+    ev.removeAllListeners("*c")
+    ev.removeAllListeners("*b*")
+    ev.removeAllListeners("*cc")
     ev.emit("abcc")
     expect(handler1).toHaveBeenCalledTimes(1)
     expect(handler2).toHaveBeenCalledTimes(1)
