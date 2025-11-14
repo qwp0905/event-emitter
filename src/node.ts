@@ -318,7 +318,9 @@ export class HandlerNode {
 
       inner: for (const pattern of patterns) {
         if (pattern === EMPTY) {
-          called ||= current._call(args)
+          if (current._call(args)) {
+            called ||= true
+          }
           continue inner
         }
 
@@ -363,15 +365,7 @@ export class HandlerNode {
       const toBeDelete = new Set<number>()
 
       inner: for (const index of indexes) {
-        if (index === NONE_INDEX) {
-          const child = parent.wildcard!
-          if (!child.isEmpty()) {
-            parent.wildcard = null
-          }
-          continue inner
-        }
-
-        const child = parent.children[index]
+        const child = index === NONE_INDEX ? parent.wildcard! : parent.children[index]
         if (!child.isEmpty()) {
           continue inner
         }
@@ -379,6 +373,9 @@ export class HandlerNode {
       }
 
       parent.children = parent.children.filter((_, index) => !toBeDelete.has(index))
+      if (toBeDelete.has(NONE_INDEX)) {
+        parent.wildcard = null
+      }
 
       if (!parent.hasToShrink()) {
         continue outer
