@@ -78,50 +78,39 @@ export class HandlerNode {
     } else if (!current.persists.delete(handler) || !current.temporaries.delete(handler)) {
       return
     }
-    if (current.isEmpty()) {
-      current = null
-    }
 
     while (stack.length > 0) {
       const [index, node] = stack.pop()!
       if (index === NONE_INDEX) {
-        if (!current) {
+        if (node.wildcard?.isEmpty()) {
           node.wildcard = null
         }
         if (!node.hasToShrink()) {
           break
         }
-        if (node.children.length === 0) {
-          current = null
-          continue
-        }
 
-        current = node.replace()
+        node.shrink()
         continue
       }
 
       const child = node.children[index]
-      if (!current) {
+      if (child.isEmpty()) {
         node.children.splice(index, 1)
-      } else if (child !== current) {
-        node.children[index] = current
       }
       if (!node.hasToShrink()) {
         break
       }
-      if (node.children.length === 0) {
-        current = null
-        continue
-      }
-
-      current = node.replace()
+      node.shrink()
     }
   }
 
-  private replace() {
+  private shrink() {
     const replace = this.children[0]
-    replace.pattern = this.pattern.concat(replace.pattern)
-    return replace
+    this.pattern += replace.pattern
+    this.children = replace.children
+    this.wildcard = replace.wildcard
+    this.persists = replace.persists
+    this.temporaries = replace.temporaries
   }
 
   private hasToShrink(): boolean {
@@ -372,7 +361,7 @@ export class HandlerNode {
         if (!parent.hasToShrink()) {
           continue
         }
-        parent.merge()
+        parent.shrink()
         continue
       }
 
@@ -386,16 +375,7 @@ export class HandlerNode {
       if (!parent.hasToShrink()) {
         continue
       }
-      parent.merge()
+      parent.shrink()
     }
-  }
-
-  private merge() {
-    const replace = this.children[0]
-    this.pattern = this.pattern.concat(replace.pattern)
-    this.children = replace.children
-    this.wildcard = replace.wildcard
-    this.persists = replace.persists
-    this.temporaries = replace.temporaries
   }
 }
