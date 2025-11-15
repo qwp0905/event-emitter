@@ -337,84 +337,53 @@ export class HandlerNode {
 
   call(pattern: string, args: any[]): boolean {
     let called = false
-    const queue: [string[], HandlerNode][] = [[[pattern], this]]
-    const stack: [number[], HandlerNode][] = []
 
-    outer: while (queue.length > 0) {
-      const [patterns, current] = queue.shift()!
-      const indexes: number[] = []
+    const queue: [string, HandlerNode][] = [[pattern, this]]
+    const stack: HandlerNode[] = []
+
+    while (queue.length > 0) {
+      const [pattern, current] = queue.shift()!
+      stack.push(current)
 
       if (current.wildcard?._call(args)) {
         called ||= true
-        indexes.push(NONE_INDEX)
       }
 
-      inner: for (const pattern of patterns) {
-        if (pattern === EMPTY) {
-          if (current._call(args)) {
-            called ||= true
-            stack.push([[], current])
-          }
-          continue inner
+      if (pattern === EMPTY) {
+        if (current._call(args)) {
+          called ||= true
         }
-
-        const [index, child, exact] = current.exact(pattern)
-        if (!child) {
-          continue inner
-        }
-
-        indexes.push(index)
-        const next = exact ? EMPTY : pattern.slice(child.pattern.length)
-        queue.push([[next], child])
-      }
-
-      if (indexes.length > 0) {
-        stack.push([indexes, current])
-      }
-
-      if (!current.wildcard) {
-        continue outer
-      }
-
-      const wcIndexes: number[] = []
-      inner: for (let i = 0; i < current.wildcard.children.length; i += 1) {
-        const child = current.wildcard.children[i]
-        const next = patterns.flatMap((pattern) => Array.from(child.pMatch(pattern)))
-        if (next.length === 0) {
-          continue inner
-        }
-        queue.push([next, child])
-        wcIndexes.push(i)
-      }
-
-      if (wcIndexes.length === 0) {
         continue
       }
 
-      stack.push([wcIndexes, current.wildcard])
+      const [, child, exact] = current.exact(pattern)
+      if (child) {
+        queue.push([exact ? EMPTY : pattern.slice(child.pattern.length), child])
+      }
+
+      if (!current.wildcard) {
+        continue
+      }
+
+      stack.push(current.wildcard)
+      for (const child of current.wildcard.children) {
+        for (const remain of child.pMatch(pattern)) {
+          queue.push([remain, child])
+        }
+      }
     }
 
-    outer: while (stack.length > 0) {
-      const [indexes, parent] = stack.pop()!
-      const toBeDelete = new Set<number>()
-
-      inner: for (const index of indexes) {
-        const child = index === NONE_INDEX ? parent.wildcard! : parent.children[index]
-        if (!child.isEmpty()) {
-          continue inner
-        }
-        toBeDelete.add(index)
+    while (stack.length > 0) {
+      const current = stack.pop()!
+      current.children = current.children.filter((child) => !child.isEmpty())
+      if (current.wildcard?.isEmpty()) {
+        current.wildcard = null
       }
 
-      parent.children = parent.children.filter((_, index) => !toBeDelete.has(index))
-      if (toBeDelete.has(NONE_INDEX)) {
-        parent.wildcard = null
+      if (!current.hasToShrink()) {
+        continue
       }
-
-      if (!parent.hasToShrink()) {
-        continue outer
-      }
-      parent.shrink()
+      current.shrink()
     }
 
     return called
