@@ -393,7 +393,7 @@ export class HandlerNode {
     return called
   }
 
-  find(pattern: string): EventHandler[] {
+  *find(pattern: string): Generator<EventHandler> {
     const patterns = normalize(pattern).split(WILDCARD)
 
     const end = patterns.length - 1
@@ -403,7 +403,7 @@ export class HandlerNode {
       while (pattern !== EMPTY) {
         const [, child, exact] = current.exact(pattern)
         if (!child) {
-          return []
+          return
         }
 
         pattern = exact ? EMPTY : pattern.slice(child.pattern.length)
@@ -415,12 +415,12 @@ export class HandlerNode {
       }
 
       if (!current.wildcard) {
-        return []
+        return
       }
 
       current = current.wildcard
     }
-
-    return [...current.permanent.values(), ...current.temporary.values()]
+    yield* current.permanent.values()
+    yield* current.temporary.values()
   }
 }

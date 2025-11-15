@@ -107,7 +107,7 @@ export class EventEmitter {
 
   listeners(pattern: EventPattern): EventHandler[] {
     if (typeof pattern === "string") {
-      return this.patterns.find(pattern)
+      return Array.from(this.patterns.find(pattern))
     }
 
     return [...(this.permanent.get(pattern) ?? []), ...(this.temporary.get(pattern) ?? [])]
