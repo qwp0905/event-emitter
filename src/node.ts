@@ -81,12 +81,12 @@ export class HandlerNode {
     for (let i = 0; i < patterns.length; i += 1) {
       let pattern = patterns[i]
       while (pattern !== EMPTY) {
-        const [index, child, exact] = current.exact(pattern)
+        const [index, child, remain] = current.findChild(pattern)
         if (!child) {
           return
         }
 
-        pattern = exact ? EMPTY : pattern.slice(child.pattern.length)
+        pattern = remain
         stack.push([index, current])
         current = child
       }
@@ -152,10 +152,10 @@ export class HandlerNode {
     )
   }
 
-  private exact(pattern: string): [number, HandlerNode | null, boolean] {
+  private findChild(pattern: string): [number, HandlerNode | null, string] {
     const [index, exact] = this.binarySearch(pattern)
     if (exact) {
-      return [index, this.children[index], true]
+      return [index, this.children[index], EMPTY]
     }
 
     const start = Math.max(index - 1, 0)
@@ -164,11 +164,11 @@ export class HandlerNode {
     for (let i = start; i <= end; i += 1) {
       const child = this.children[i]
       if (pattern.startsWith(child.pattern)) {
-        return [i, child, false]
+        return [i, child, pattern.slice(child.pattern.length)]
       }
     }
 
-    return [index, null, false]
+    return [index, null, EMPTY]
   }
 
   private isEmpty() {
@@ -356,9 +356,9 @@ export class HandlerNode {
         continue
       }
 
-      const [, child, exact] = current.exact(pattern)
+      const [, child, remain] = current.findChild(pattern)
       if (child) {
-        queue.push([exact ? EMPTY : pattern.slice(child.pattern.length), child])
+        queue.push([remain, child])
       }
 
       if (!current.wildcard) {
@@ -397,12 +397,12 @@ export class HandlerNode {
     for (let i = 0; i < patterns.length; i += 1) {
       let pattern = patterns[i]
       while (pattern !== EMPTY) {
-        const [, child, exact] = current.exact(pattern)
+        const [, child, remain] = current.findChild(pattern)
         if (!child) {
           return
         }
 
-        pattern = exact ? EMPTY : pattern.slice(child.pattern.length)
+        pattern = remain
         current = child
       }
 
