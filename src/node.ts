@@ -48,8 +48,8 @@ export class HandlerNode {
 
     const end = patterns.length - 1
     let current: HandlerNode = this as HandlerNode
-    // eslint-disable-next-line prefer-const
-    for (let [i, pattern] of patterns.entries()) {
+    for (let i = 0; i < patterns.length; i += 1) {
+      let pattern = patterns[i]
       while (pattern !== EMPTY) {
         const [index, child, exact] = current.exact(pattern)
         if (!child) {
@@ -391,8 +391,8 @@ export class HandlerNode {
 
     const end = patterns.length - 1
     let current: HandlerNode = this as HandlerNode
-    // eslint-disable-next-line prefer-const
-    for (let [i, pattern] of patterns.entries()) {
+    for (let i = 0; i < patterns.length; i += 1) {
+      let pattern = patterns[i]
       while (pattern !== EMPTY) {
         const [, child, exact] = current.exact(pattern)
         if (!child) {
