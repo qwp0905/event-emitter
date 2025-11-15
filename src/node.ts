@@ -79,6 +79,9 @@ export class HandlerNode {
     } else if (!current.permanent.delete(handler) || !current.temporary.delete(handler)) {
       return
     }
+    if (current.hasToShrink()) {
+      current.shrink()
+    }
 
     while (stack.length > 0) {
       const [index, parent] = stack.pop()!
@@ -320,6 +323,7 @@ export class HandlerNode {
         if (pattern === EMPTY) {
           if (current._call(args)) {
             called ||= true
+            stack.push([[], current])
           }
           continue inner
         }
