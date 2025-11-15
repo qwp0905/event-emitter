@@ -282,7 +282,7 @@ export class HandlerNode {
     }
   }
 
-  private *pMatch(text: string): Generator<string> {
+  private *kmp(text: string): Generator<string> {
     const n = text.length
     const m = this.pattern.length
     const failure = new Uint32Array(m)
@@ -367,7 +367,7 @@ export class HandlerNode {
 
       stack.push(current.wildcard)
       for (const child of current.wildcard.children) {
-        for (const remain of child.pMatch(pattern)) {
+        for (const remain of child.kmp(pattern)) {
           queue.push([remain, child])
         }
       }
