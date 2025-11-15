@@ -200,4 +200,59 @@ describe("EventEmitter", () => {
 
     expect(handler).toHaveBeenCalledTimes(1)
   })
+
+  it("should emit event once", () => {
+    const handler = jest.fn()
+    const pattern = "test"
+    ev.once(pattern, handler)
+    ev.emit(pattern)
+    expect(handler).toHaveBeenCalledTimes(1)
+    ev.emit(pattern)
+    expect(handler).toHaveBeenCalledTimes(1)
+  })
+
+  it("should emit event once with wildcard", () => {
+    const handler1 = jest.fn()
+    const handler2 = jest.fn()
+    const handler3 = jest.fn()
+    const handler4 = jest.fn()
+    const handler5 = jest.fn()
+
+    ev.once("abcc", handler1)
+    ev.once("a*", handler2)
+    ev.once("*c", handler3)
+    ev.once("*", handler4)
+    ev.once("*cc", handler5)
+
+    ev.emit("abcc")
+    expect(handler1).toHaveBeenCalledTimes(1)
+    expect(handler2).toHaveBeenCalledTimes(1)
+    expect(handler3).toHaveBeenCalledTimes(1)
+    expect(handler4).toHaveBeenCalledTimes(1)
+    expect(handler5).toHaveBeenCalledTimes(1)
+
+    ev.emit("abcc")
+    expect(handler1).toHaveBeenCalledTimes(1)
+    expect(handler2).toHaveBeenCalledTimes(1)
+    expect(handler3).toHaveBeenCalledTimes(1)
+    expect(handler4).toHaveBeenCalledTimes(1)
+    expect(handler5).toHaveBeenCalledTimes(1)
+  })
+
+  it("should return event names", () => {
+    const handler = jest.fn()
+    ev.once("abcc", handler)
+    ev.once("a*", handler)
+    ev.once("*c", handler)
+    ev.once("*", handler)
+    ev.once("*cc", handler)
+
+    const names = ev.eventNames()
+    expect(names.length).toBe(5)
+    expect(names.includes("abcc")).toBe(true)
+    expect(names.includes("a*")).toBe(true)
+    expect(names.includes("*c")).toBe(true)
+    expect(names.includes("*")).toBe(true)
+    expect(names.includes("*cc")).toBe(true)
+  })
 })
