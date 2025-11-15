@@ -301,6 +301,7 @@ export class HandlerNode {
       handler(...args)
       called ||= true
     }
+
     this.temporary.clear()
     return called
   }

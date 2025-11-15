@@ -42,12 +42,26 @@ export class EventEmitter {
       return this
     }
 
-    const handlers = this.permanent.get(pattern) ?? this.temporary.get(pattern)
-    if (!handlers) {
+    const permanent = this.permanent.get(pattern)
+    if (permanent?.delete(handler)) {
+      if (permanent.size > 0) {
+        return this
+      }
+      this.permanent.delete(pattern)
       return this
     }
 
-    handlers.delete(handler)
+    const temporary = this.temporary.get(pattern)
+    if (!temporary) {
+      return this
+    }
+    if (!temporary.delete(handler)) {
+      return this
+    }
+    if (temporary.size > 0) {
+      return this
+    }
+    this.temporary.delete(pattern)
     return this
   }
 
