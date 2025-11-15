@@ -89,10 +89,11 @@ export class HandlerNode {
         if (parent.wildcard?.isEmpty()) {
           parent.wildcard = null
         }
-      } else {
-        if (parent.children[index].isEmpty()) {
-          parent.children.splice(index, 1)
-        }
+        continue
+      }
+
+      if (parent.children[index].isEmpty()) {
+        parent.children.splice(index, 1)
       }
 
       if (!parent.hasToShrink()) {
