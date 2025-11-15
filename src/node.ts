@@ -33,7 +33,8 @@ export class HandlerNode {
   insert(pattern: string, handler: EventHandler, isTemporary: boolean = false) {
     let current = this as HandlerNode
     const patterns = normalize(pattern).split(WILDCARD)
-    for (const part of patterns.slice(0, -1)) {
+    for (let i = 0; i < patterns.length - 1; i += 1) {
+      const part = patterns[i]
       const inserted = current._insert(part)
       current = inserted.wildcard ??= new HandlerNode()
     }
