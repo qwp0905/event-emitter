@@ -285,7 +285,7 @@ export class HandlerNode {
   private *kmp(text: string): Generator<string> {
     const n = text.length
     const m = this.pattern.length
-    const failure = new Uint32Array(m)
+    const failure = new Uint8Array(m)
     let j = 0
 
     for (let i = 1; i < m; i += 1) {
