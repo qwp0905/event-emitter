@@ -1,3 +1,5 @@
+import { Nullable, Triple, Tuple } from "./type"
+
 export interface EventHandler {
   (...args: any[]): any
 }
@@ -9,10 +11,6 @@ const NONE_INDEX = -1
 function normalize(pattern: string) {
   return pattern.replace(/(\*)+/g, WILDCARD)
 }
-
-type Nullable<T> = T | null
-type Tuple<T, U> = [T, U]
-type Triple<T, U, V> = [T, U, V]
 
 export class HandlerNode {
   private children: HandlerNode[]
@@ -342,7 +340,7 @@ export class HandlerNode {
   call(pattern: string, args: any[]): boolean {
     let called = false
 
-    const queue: Tuple<string, HandlerNode>[] = [[pattern, this]]
+    const queue: Queue<Tuple<string, HandlerNode>> = Queue.from([pattern, this])
     const stack: HandlerNode[] = []
 
     while (queue.length > 0) {
