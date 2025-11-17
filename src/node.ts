@@ -10,11 +10,15 @@ function normalize(pattern: string) {
   return pattern.replace(/(\*)+/g, WILDCARD)
 }
 
+type Nullable<T> = T | null
+type Tuple<T, U> = [T, U]
+type Triple<T, U, V> = [T, U, V]
+
 export class HandlerNode {
   private children: HandlerNode[]
-  private permanent: Set<EventHandler> | null = null
-  private temporary: Set<EventHandler> | null = null
-  private wildcard: HandlerNode | null = null
+  private permanent: Nullable<Set<EventHandler>> = null
+  private temporary: Nullable<Set<EventHandler>> = null
+  private wildcard: Nullable<HandlerNode> = null
 
   constructor(
     private pattern: string = EMPTY,
@@ -39,7 +43,7 @@ export class HandlerNode {
       current = inserted.wildcard ??= new HandlerNode()
     }
 
-    return current._insert(patterns.at(-1)!, handler, isTemporary)
+    current._insert(patterns.at(-1)!, handler, isTemporary)
   }
 
   private _remove(handler?: EventHandler): boolean {
@@ -74,7 +78,7 @@ export class HandlerNode {
   remove(pattern: string, handler?: EventHandler) {
     const patterns = normalize(pattern).split(WILDCARD)
 
-    const stack: [number, HandlerNode][] = []
+    const stack: Tuple<number, HandlerNode>[] = []
 
     const end = patterns.length - 1
     let current: HandlerNode = this as HandlerNode
@@ -152,7 +156,7 @@ export class HandlerNode {
     )
   }
 
-  private findChild(pattern: string): [number, HandlerNode | null, string] {
+  private findChild(pattern: string): Triple<number, Nullable<HandlerNode>, string> {
     const [index, exact] = this.binarySearch(pattern)
     if (exact) {
       return [index, this.children[index], EMPTY]
@@ -243,7 +247,7 @@ export class HandlerNode {
     return pattern.slice(0, len)
   }
 
-  private binarySearch(pattern: string): [number, boolean] {
+  private binarySearch(pattern: string): Tuple<number, boolean> {
     let low = 0
     let high = this.children.length
     while (low < high) {
@@ -262,7 +266,7 @@ export class HandlerNode {
   }
 
   *patterns(): Generator<string> {
-    const stack: [string, HandlerNode][] = [[EMPTY, this]]
+    const stack: Tuple<string, HandlerNode>[] = [[EMPTY, this]]
 
     while (stack.length > 0) {
       const [prefix, current] = stack.pop()!
@@ -338,7 +342,7 @@ export class HandlerNode {
   call(pattern: string, args: any[]): boolean {
     let called = false
 
-    const queue: [string, HandlerNode][] = [[pattern, this]]
+    const queue: Tuple<string, HandlerNode>[] = [[pattern, this]]
     const stack: HandlerNode[] = []
 
     while (queue.length > 0) {
