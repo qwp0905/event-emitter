@@ -17,10 +17,5 @@
     "forceConsistentCasingInFileNames": true,
     "strict": true,
     "skipLibCheck": true
-  },
-  "exclude": [
-    "./.vscode/**/*",
-    "./.yarn/**/*",
-    "./dist/**/*"
-  ]
+  }
 }
