@@ -1,3 +1,4 @@
+import { Queue } from "./queue"
 import { Nullable, Triple, Tuple } from "./type"
 
 export interface EventHandler {
