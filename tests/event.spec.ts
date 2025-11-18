@@ -282,9 +282,18 @@ describe("EventEmitter", () => {
     ev.on(pattern, handler)
 
     ev.off(pattern, jest.fn())
-    ev.emit(pattern)
+    expect(ev.emit(pattern)).toBe(true)
 
     expect(handler).toHaveBeenCalledTimes(1)
+
+    ev.off("a*b*c**c", handler)
+    expect(ev.emit(pattern)).toBe(true)
+
+    expect(handler).toHaveBeenCalledTimes(2)
+
+    ev.removeAllListeners("sdfk")
+    expect(ev.emit(pattern)).toBe(true)
+    expect(handler).toHaveBeenCalledTimes(3)
   })
 
   it("should emit event once", () => {
@@ -332,6 +341,26 @@ describe("EventEmitter", () => {
     expect(handler5).toHaveBeenCalledTimes(1)
   })
 
+  it("should remove once event handler", () => {
+    const handler = jest.fn()
+    const handler2 = jest.fn()
+    ev.once("1", handler)
+    ev.once("111", handler)
+    ev.on("111", handler2)
+    ev.once("112", handler)
+    ev.once("1123", handler)
+
+    ev.off("111", handler)
+    ev.emit("111")
+    expect(handler).toHaveBeenCalledTimes(0)
+    expect(handler2).toHaveBeenCalledTimes(1)
+
+    ev.off("111", handler2)
+    ev.emit("111")
+    expect(handler).toHaveBeenCalledTimes(0)
+    expect(handler2).toHaveBeenCalledTimes(1)
+  })
+
   it("should emit event once with symbol", () => {
     const pattern = Symbol()
     const handler = jest.fn()
@@ -358,5 +387,30 @@ describe("EventEmitter", () => {
     expect(names.includes("*c")).toBe(true)
     expect(names.includes("*")).toBe(true)
     expect(names.includes("*cc")).toBe(true)
+  })
+
+  it("should emit event with multiple patterns", () => {
+    const patterns = Array.from({ length: 100 }, (_, i) => i.toString().padStart(3, "0"))
+    const handlers = patterns.map(() => jest.fn())
+
+    for (let i = 0; i < patterns.length; i += 1) {
+      ev.once(patterns[i], handlers[i])
+    }
+
+    for (let i = 0; i < patterns.length; i += 1) {
+      expect(ev.emit(patterns[i])).toBe(true)
+      for (let j = 0; j <= i; j += 1) {
+        expect(handlers[j]).toHaveBeenCalledTimes(1)
+      }
+      for (let j = i + 1; j < patterns.length; j += 1) {
+        expect(handlers[j]).toHaveBeenCalledTimes(0)
+      }
+    }
+    for (let i = 0; i < patterns.length; i += 1) {
+      expect(ev.emit(patterns[i])).toBe(false)
+      for (let j = 0; j < patterns.length; j += 1) {
+        expect(handlers[j]).toHaveBeenCalledTimes(1)
+      }
+    }
   })
 })
