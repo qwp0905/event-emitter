@@ -87,8 +87,7 @@ export class HandlerNode {
         }
 
         remain = remain.slice(match.length)
-        const node = child.split(match)
-        current.children[i] = current = node
+        current.children[i] = current = child.split(match)
         continue outer
       }
 
