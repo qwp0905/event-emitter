@@ -45,6 +45,75 @@ export class HandlerNode {
     current._insert(patterns.at(-1)!, handler, isTemporary)
   }
 
+  private match(pattern: string): string {
+    const len = Math.min(this.pattern.length, pattern.length)
+    for (let i = 0; i < len; i += 1) {
+      if (this.pattern[i] !== pattern[i]) {
+        return pattern.slice(0, i)
+      }
+    }
+    return pattern.slice(0, len)
+  }
+
+  private _insert(
+    pattern: string,
+    handler?: EventHandler,
+    isTemporary: boolean = false
+  ): HandlerNode {
+    let current = this as HandlerNode
+    let remain = pattern
+
+    outer: while (remain !== EMPTY) {
+      const [index, exact] = current.binarySearch(remain)
+      if (exact) {
+        remain = EMPTY
+        current = current.children[index]
+        continue outer
+      }
+
+      const start = Math.max(index - 1, 0)
+      const end = Math.min(index, current.children.length - 1)
+      inner: for (let i = start; i <= end; i += 1) {
+        const child = current.children[i]
+        const match = child.match(remain)
+        if (match === EMPTY) {
+          continue inner
+        }
+
+        if (match === child.pattern) {
+          remain = remain.slice(match.length)
+          current = child
+          continue outer
+        }
+
+        remain = remain.slice(match.length)
+        const node = child.split(match)
+        current.children[i] = current = node
+        continue outer
+      }
+
+      const node = new HandlerNode(remain)
+      current.children.splice(index, 0, node)
+      remain = EMPTY
+      current = node
+    }
+
+    if (!handler) {
+      return current
+    }
+
+    const handlers = isTemporary
+      ? (current.temporary ??= new Set())
+      : (current.permanent ??= new Set())
+    handlers.add(handler)
+    return current
+  }
+
+  private split(match: string) {
+    this.pattern = this.pattern.slice(match.length)
+    return new HandlerNode(match, this)
+  }
+
   private _remove(handler?: EventHandler): boolean {
     if (!handler) {
       if (!this.permanent && !this.temporary) {
@@ -178,72 +247,6 @@ export class HandlerNode {
     return (
       !this.permanent?.size && !this.temporary?.size && this.children.length === 0 && !this.wildcard
     )
-  }
-
-  private _insert(
-    pattern: string,
-    handler?: EventHandler,
-    isTemporary: boolean = false
-  ): HandlerNode {
-    let current = this as HandlerNode
-    let remain = pattern
-
-    outer: while (remain !== EMPTY) {
-      const [index, exact] = current.binarySearch(remain)
-      if (exact) {
-        remain = EMPTY
-        current = current.children[index]
-        continue outer
-      }
-
-      const start = Math.max(index - 1, 0)
-      const end = Math.min(index, current.children.length - 1)
-      inner: for (let i = start; i <= end; i += 1) {
-        const child = current.children[i]
-        const match = child.match(remain)
-        if (match === EMPTY) {
-          continue inner
-        }
-
-        if (match === child.pattern) {
-          remain = remain.slice(match.length)
-          current = child
-          continue outer
-        }
-
-        child.pattern = child.pattern.slice(match.length)
-        const node = new HandlerNode(match, child)
-        current.children[i] = node
-        remain = remain.slice(match.length)
-        current = node
-        continue outer
-      }
-
-      const node = new HandlerNode(remain)
-      current.children.splice(index, 0, node)
-      remain = EMPTY
-      current = node
-    }
-
-    if (!handler) {
-      return current
-    }
-
-    const handlers = isTemporary
-      ? (current.temporary ??= new Set())
-      : (current.permanent ??= new Set())
-    handlers.add(handler)
-    return current
-  }
-
-  private match(pattern: string): string {
-    const len = Math.min(this.pattern.length, pattern.length)
-    for (let i = 0; i < len; i += 1) {
-      if (this.pattern[i] !== pattern[i]) {
-        return pattern.slice(0, i)
-      }
-    }
-    return pattern.slice(0, len)
   }
 
   private binarySearch(pattern: string): Tuple<number, boolean> {
