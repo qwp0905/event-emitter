@@ -70,16 +70,25 @@ export class EventEmitter {
       return this.patterns.call(pattern, args)
     }
 
-    const handlers = this.permanent.get(pattern) ?? this.temporary.get(pattern)
-    if (!handlers) {
-      return false
+    let called = false
+
+    const permanent = this.permanent.get(pattern)
+    if (permanent) {
+      for (const handler of permanent) {
+        handler(...args)
+        called ||= true
+      }
     }
 
-    let called = false
-    for (const handler of handlers) {
-      handler(...args)
-      called ||= true
+    const temporary = this.temporary.get(pattern)
+    if (temporary) {
+      for (const handler of temporary) {
+        handler(...args)
+        called ||= true
+      }
+      this.temporary.delete(pattern)
     }
+
     return called
   }
 

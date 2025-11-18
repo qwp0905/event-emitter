@@ -84,6 +84,39 @@ describe("EventEmitter", () => {
     expect(handler5).toHaveBeenCalledTimes(1)
   })
 
+  it("should emit event with symbol", () => {
+    const pattern = Symbol()
+    const handler = jest.fn()
+    ev.on(pattern, handler)
+    ev.emit(pattern)
+    expect(handler).toHaveBeenCalledTimes(1)
+
+    ev.emit(Symbol())
+    expect(handler).toHaveBeenCalledTimes(1)
+  })
+
+  it("should emit event with multiple symbol", () => {
+    const pattern1 = Symbol()
+    const pattern2 = Symbol()
+    const handler1 = jest.fn()
+    const handler2 = jest.fn()
+    const handler3 = jest.fn()
+
+    ev.on(pattern1, handler1)
+    ev.on(pattern1, handler3)
+    ev.on(pattern2, handler2)
+
+    ev.emit(pattern1)
+    expect(handler1).toHaveBeenCalledTimes(1)
+    expect(handler2).toHaveBeenCalledTimes(0)
+    expect(handler3).toHaveBeenCalledTimes(1)
+
+    ev.emit(pattern2)
+    expect(handler1).toHaveBeenCalledTimes(1)
+    expect(handler2).toHaveBeenCalledTimes(1)
+    expect(handler3).toHaveBeenCalledTimes(1)
+  })
+
   it("should remove event handler", () => {
     const handler = jest.fn()
     const pattern = "test"
@@ -124,6 +157,59 @@ describe("EventEmitter", () => {
     expect(handler3).toHaveBeenCalledTimes(2)
     expect(handler4).toHaveBeenCalledTimes(1)
     expect(handler5).toHaveBeenCalledTimes(2)
+  })
+
+  it("should remove event handler with symbol", () => {
+    const pattern = Symbol()
+    const handler = jest.fn()
+    ev.on(pattern, handler)
+    ev.emit(pattern)
+    expect(handler).toHaveBeenCalledTimes(1)
+
+    ev.off(pattern, handler)
+    ev.emit(pattern)
+    expect(handler).toHaveBeenCalledTimes(1)
+  })
+
+  it("should remove event handler with multiple symbol", () => {
+    const pattern1 = Symbol()
+    const pattern2 = Symbol()
+    const handler1 = jest.fn()
+    const handler2 = jest.fn()
+    const handler3 = jest.fn()
+
+    ev.on(pattern1, handler1)
+    ev.on(pattern1, handler3)
+    ev.on(pattern2, handler2)
+
+    ev.emit(pattern1)
+    expect(handler1).toHaveBeenCalledTimes(1)
+    expect(handler2).toHaveBeenCalledTimes(0)
+    expect(handler3).toHaveBeenCalledTimes(1)
+
+    ev.off(pattern1, handler3)
+    ev.emit(pattern1)
+    expect(handler1).toHaveBeenCalledTimes(2)
+    expect(handler2).toHaveBeenCalledTimes(0)
+    expect(handler3).toHaveBeenCalledTimes(1)
+
+    ev.off(pattern1, handler1)
+    ev.emit(pattern1)
+    expect(handler1).toHaveBeenCalledTimes(2)
+    expect(handler2).toHaveBeenCalledTimes(0)
+    expect(handler3).toHaveBeenCalledTimes(1)
+
+    ev.emit(pattern2)
+    expect(handler1).toHaveBeenCalledTimes(2)
+    expect(handler2).toHaveBeenCalledTimes(1)
+    expect(handler3).toHaveBeenCalledTimes(1)
+
+    ev.off(pattern2, handler2)
+    ev.emit(pattern2)
+
+    expect(handler1).toHaveBeenCalledTimes(2)
+    expect(handler2).toHaveBeenCalledTimes(1)
+    expect(handler3).toHaveBeenCalledTimes(1)
   })
 
   it("should remove all event handlers by pattern", () => {
@@ -237,6 +323,24 @@ describe("EventEmitter", () => {
     expect(handler3).toHaveBeenCalledTimes(1)
     expect(handler4).toHaveBeenCalledTimes(1)
     expect(handler5).toHaveBeenCalledTimes(1)
+
+    ev.emit("abcc")
+    expect(handler1).toHaveBeenCalledTimes(1)
+    expect(handler2).toHaveBeenCalledTimes(1)
+    expect(handler3).toHaveBeenCalledTimes(1)
+    expect(handler4).toHaveBeenCalledTimes(1)
+    expect(handler5).toHaveBeenCalledTimes(1)
+  })
+
+  it("should emit event once with symbol", () => {
+    const pattern = Symbol()
+    const handler = jest.fn()
+    ev.once(pattern, handler)
+    ev.emit(pattern)
+    expect(handler).toHaveBeenCalledTimes(1)
+
+    ev.emit(pattern)
+    expect(handler).toHaveBeenCalledTimes(1)
   })
 
   it("should return event names", () => {
