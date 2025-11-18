@@ -157,8 +157,8 @@ export class HandlerNode {
           return
         }
 
-        pattern = remain
         stack.push([index, current])
+        pattern = remain
         current = child
       }
 
