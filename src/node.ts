@@ -18,6 +18,7 @@ export class HandlerNode {
   private temporary: Nullable<Set<EventHandler>> = null
   private wildcard: Nullable<HandlerNode> = null
   private parent: Nullable<WeakRef<HandlerNode>> = null
+  private failure: Nullable<Uint8Array> = null
 
   constructor(
     private pattern: string = EMPTY,
@@ -294,23 +295,25 @@ export class HandlerNode {
   private *kmp(text: string): Generator<string> {
     const n = text.length
     const m = this.pattern.length
-    const failure = new Uint8Array(m)
-    let j = 0
+    if (!this.failure || this.failure.length !== m) {
+      this.failure = new Uint8Array(m)
+      let j = 0
 
-    for (let i = 1; i < m; i += 1) {
-      while (j > 0 && this.pattern[i] !== this.pattern[j]) {
-        j = failure[j - 1]
+      for (let i = 1; i < m; i += 1) {
+        while (j > 0 && this.pattern[i] !== this.pattern[j]) {
+          j = this.failure[j - 1]
+        }
+        if (this.pattern[i] === this.pattern[j]) {
+          j += 1
+        }
+        this.failure[i] = j
       }
-      if (this.pattern[i] === this.pattern[j]) {
-        j += 1
-      }
-      failure[i] = j
     }
 
-    j = 0
+    let j = 0
     for (let i = 0; i < n; i += 1) {
       while (j > 0 && text[i] !== this.pattern[j]) {
-        j = failure[j - 1]
+        j = this.failure[j - 1]
       }
       if (text[i] === this.pattern[j]) {
         j += 1
@@ -320,7 +323,7 @@ export class HandlerNode {
       }
 
       yield text.slice(i + 1)
-      j = failure[j - 1]
+      j = this.failure[j - 1]
     }
   }
 
