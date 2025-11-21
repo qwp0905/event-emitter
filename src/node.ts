@@ -1,5 +1,5 @@
 import { Queue } from "./queue"
-import { Nullable, Triple, Tuple } from "./type"
+import { Nullable, Tuple } from "./type"
 
 export interface EventHandler {
   (...args: any[]): any
@@ -7,7 +7,6 @@ export interface EventHandler {
 
 const WILDCARD = "*"
 const EMPTY = ""
-const NONE_INDEX = -1
 
 function normalize(pattern: string) {
   return pattern.replace(/(\*)+/g, WILDCARD)
@@ -18,12 +17,19 @@ export class HandlerNode {
   private permanent: Nullable<Set<EventHandler>> = null
   private temporary: Nullable<Set<EventHandler>> = null
   private wildcard: Nullable<HandlerNode> = null
+  private parent: Nullable<WeakRef<HandlerNode>> = null
 
   constructor(
     private pattern: string = EMPTY,
     ...children: HandlerNode[]
   ) {
     this.children = children
+  }
+
+  private create(pattern?: string, ...children: HandlerNode[]) {
+    const node = new HandlerNode(pattern, ...children)
+    node.parent = new WeakRef(this)
+    return node
   }
 
   clear() {
@@ -39,7 +45,7 @@ export class HandlerNode {
     for (let i = 0; i < patterns.length - 1; i += 1) {
       const part = patterns[i]
       const inserted = current._insert(part)
-      current = inserted.wildcard ??= new HandlerNode()
+      current = inserted.wildcard ??= inserted.create()
     }
 
     current._insert(patterns.at(-1)!, handler, isTemporary)
@@ -91,7 +97,7 @@ export class HandlerNode {
         continue outer
       }
 
-      const node = new HandlerNode(remain)
+      const node = current.create(remain)
       current.children.splice(index, 0, node)
       remain = EMPTY
       current = node
@@ -109,8 +115,11 @@ export class HandlerNode {
   }
 
   private split(match: string) {
+    const node = new HandlerNode(match, this)
+    node.parent = this.parent
+    this.parent = new WeakRef(node)
     this.pattern = this.pattern.slice(match.length)
-    return new HandlerNode(match, this)
+    return node
   }
 
   private _remove(handler?: EventHandler): boolean {
@@ -145,19 +154,16 @@ export class HandlerNode {
   remove(pattern: string, handler?: EventHandler) {
     const patterns = normalize(pattern).split(WILDCARD)
 
-    const stack: Tuple<number, HandlerNode>[] = []
-
     const end = patterns.length - 1
-    let current: HandlerNode = this as HandlerNode
+    let current = this as HandlerNode
     for (let i = 0; i < patterns.length; i += 1) {
       let pattern = patterns[i]
       while (pattern !== EMPTY) {
-        const [index, child, remain] = current.findChild(pattern)
+        const [child, remain] = current.findChild(pattern)
         if (!child) {
           return
         }
 
-        stack.push([index, current])
         pattern = remain
         current = child
       }
@@ -169,43 +175,51 @@ export class HandlerNode {
       if (!current.wildcard) {
         return
       }
-
-      stack.push([NONE_INDEX, current])
       current = current.wildcard
     }
 
     if (!current._remove(handler)) {
       return
     }
-    if (current.hasToShrink()) {
-      current.shrink()
+    if (!current.shrink()) {
+      return
     }
 
-    while (stack.length > 0) {
-      const [index, parent] = stack.pop()!
-      if (index === NONE_INDEX) {
-        if (parent.wildcard?.isEmpty()) {
-          parent.wildcard = null
-        }
-        continue
+    while (!!current.parent) {
+      const parent = current.parent.deref()!
+      if (!parent.shrink()) {
+        break
       }
-
-      if (parent.children[index].isEmpty()) {
-        parent.children.splice(index, 1)
-      }
-
-      if (!parent.hasToShrink()) {
-        continue
-      }
-      parent.shrink()
+      current = parent
     }
   }
 
   private shrink() {
+    if (this.wildcard?.isEmpty()) {
+      this.wildcard = null
+    }
+    this.children = this.children.filter((child) => !child.isEmpty())
+    if (this.children.length > 1) {
+      return false
+    }
+    if (this.permanent?.size) {
+      return false
+    }
+    if (this.temporary?.size) {
+      return false
+    }
+    if (this.wildcard) {
+      return false
+    }
+    if (this.pattern === EMPTY) {
+      return false
+    }
+
     const replace = this.children[0]
     if (!replace) {
-      return
+      return true
     }
+
     this.pattern += replace.pattern
     this.children = replace.children
     this.wildcard = replace.wildcard
@@ -213,20 +227,10 @@ export class HandlerNode {
     this.temporary = replace.temporary
   }
 
-  private hasToShrink(): boolean {
-    return (
-      this.children.length < 2 &&
-      !this.permanent?.size &&
-      !this.temporary?.size &&
-      !this.wildcard &&
-      this.pattern !== EMPTY
-    )
-  }
-
-  private findChild(pattern: string): Triple<number, Nullable<HandlerNode>, string> {
+  private findChild(pattern: string): Tuple<Nullable<HandlerNode>, string> {
     const [index, exact] = this.binarySearch(pattern)
     if (exact) {
-      return [index, this.children[index], EMPTY]
+      return [this.children[index], EMPTY]
     }
 
     const start = Math.max(index - 1, 0)
@@ -235,11 +239,11 @@ export class HandlerNode {
     for (let i = start; i <= end; i += 1) {
       const child = this.children[i]
       if (pattern.startsWith(child.pattern)) {
-        return [i, child, pattern.slice(child.pattern.length)]
+        return [child, pattern.slice(child.pattern.length)]
       }
     }
 
-    return [index, null, EMPTY]
+    return [null, EMPTY]
   }
 
   private isEmpty() {
@@ -320,48 +324,21 @@ export class HandlerNode {
     }
   }
 
-  private _call(args: any[]): boolean {
-    let called = false
-    if (this.permanent) {
-      for (const handler of this.permanent.values()) {
-        handler(...args)
-        called ||= true
-      }
-    }
-    if (!this.temporary) {
-      return called
-    }
-
-    for (const handler of this.temporary.values()) {
-      handler(...args)
-      called ||= true
-    }
-    this.temporary = null
-    return called
-  }
-
   call(pattern: string, args: any[]): boolean {
-    let called = false
-
     const queue: Queue<Tuple<string, HandlerNode>> = Queue.from([pattern, this])
-    const stack: HandlerNode[] = []
+    const callStack: HandlerNode[] = []
 
     while (queue.length > 0) {
       const [pattern, current] = queue.shift()!
-      stack.push(current)
-
-      if (current.wildcard?._call(args)) {
-        called ||= true
-      }
-
       if (pattern === EMPTY) {
-        if (current._call(args)) {
-          called ||= true
+        callStack.push(current)
+        if (current.wildcard) {
+          callStack.push(current.wildcard)
         }
         continue
       }
 
-      const [, child, remain] = current.findChild(pattern)
+      const [child, remain] = current.findChild(pattern)
       if (child) {
         queue.push([remain, child])
       }
@@ -370,7 +347,7 @@ export class HandlerNode {
         continue
       }
 
-      stack.push(current.wildcard)
+      callStack.push(current.wildcard)
       for (const child of current.wildcard.children) {
         for (const remain of child.kmp(pattern)) {
           queue.push([remain, child])
@@ -378,17 +355,30 @@ export class HandlerNode {
       }
     }
 
-    while (stack.length > 0) {
-      const current = stack.pop()!
-      current.children = current.children.filter((child) => !child.isEmpty())
-      if (current.wildcard?.isEmpty()) {
-        current.wildcard = null
+    let called = false
+    outer: while (callStack.length > 0) {
+      let current = callStack.pop()!
+
+      if (current.permanent) {
+        called ||= true
+        current.permanent.forEach((handler) => handler(...args))
       }
 
-      if (!current.hasToShrink()) {
-        continue
+      if (!current.temporary) {
+        continue outer
       }
-      current.shrink()
+
+      called ||= true
+      current.temporary.forEach((handler) => handler(...args))
+      current.temporary = null
+
+      inner: while (!!current.parent) {
+        const parent = current.parent.deref()!
+        if (!parent.shrink()) {
+          break inner
+        }
+        current = parent
+      }
     }
 
     return called
@@ -402,7 +392,7 @@ export class HandlerNode {
     for (let i = 0; i < patterns.length; i += 1) {
       let pattern = patterns[i]
       while (pattern !== EMPTY) {
-        const [, child, remain] = current.findChild(pattern)
+        const [child, remain] = current.findChild(pattern)
         if (!child) {
           return
         }
