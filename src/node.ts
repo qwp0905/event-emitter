@@ -295,7 +295,7 @@ export class HandlerNode {
   private *kmp(text: string): Generator<string> {
     const n = text.length
     const m = this.pattern.length
-    if (!this.failure || this.failure.length !== m) {
+    if (this.failure?.length !== m) {
       this.failure = new Uint8Array(m)
       let j = 0
 
