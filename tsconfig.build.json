@@ -1,5 +1,15 @@
 {
   "extends": "./tsconfig.json",
-  "includes": ["src/**/*.ts"],
-  "exclude": ["tests", "node_modules", "dist", "jest.config.ts", ".vscode", ".yarn"]
+  "includes": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "tests",
+    "node_modules",
+    "dist",
+    "jest.config.ts",
+    ".vscode",
+    ".yarn",
+    "coverage"
+  ]
 }
