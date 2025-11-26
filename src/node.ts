@@ -425,4 +425,34 @@ export class HandlerNode {
       yield* current.temporary.values()
     }
   }
+
+  count(pattern: string) {
+    const patterns = normalize(pattern).split(WILDCARD)
+
+    const end = patterns.length - 1
+    let current: HandlerNode = this as HandlerNode
+    for (let i = 0; i < patterns.length; i += 1) {
+      let pattern = patterns[i]
+      while (pattern !== EMPTY) {
+        const [child, remain] = current.findChild(pattern)
+        if (!child) {
+          return
+        }
+
+        pattern = remain
+        current = child
+      }
+
+      if (i === end) {
+        break
+      }
+
+      if (!current.wildcard) {
+        return
+      }
+
+      current = current.wildcard
+    }
+    return (current.permanent?.size ?? 0) + (current.temporary?.size ?? 0)
+  }
 }

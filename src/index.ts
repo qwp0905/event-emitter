@@ -124,7 +124,10 @@ export class EventEmitter {
   rawListeners = this.listeners
 
   listenerCount(pattern: EventPattern) {
-    return this.listeners(pattern).length
+    if (typeof pattern === "string") {
+      return this.patterns.count(pattern)
+    }
+    return (this.permanent.get(pattern)?.size ?? 0) + (this.temporary.get(pattern)?.size ?? 0)
   }
 
   eventNames(): EventPattern[] {
