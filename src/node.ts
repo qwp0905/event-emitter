@@ -120,6 +120,7 @@ export class HandlerNode {
     node.parent = this.parent
     this.parent = new WeakRef(node)
     this.pattern = this.pattern.slice(match.length)
+    this.failure &&= null
     return node
   }
 
@@ -226,6 +227,7 @@ export class HandlerNode {
     this.wildcard = replace.wildcard
     this.permanent = replace.permanent
     this.temporary = replace.temporary
+    this.failure &&= null
   }
 
   private findChild(pattern: string): Tuple<Nullable<HandlerNode>, string> {
@@ -295,19 +297,21 @@ export class HandlerNode {
   private *kmp(text: string): Generator<string> {
     const n = text.length
     const m = this.pattern.length
-    if (this.failure?.length !== m) {
-      this.failure = new Uint8Array(m)
+    if (!this.failure) {
+      const failure = new Uint8Array(m)
       let j = 0
 
       for (let i = 1; i < m; i += 1) {
         while (j > 0 && this.pattern[i] !== this.pattern[j]) {
-          j = this.failure[j - 1]
+          j = failure[j - 1]
         }
         if (this.pattern[i] === this.pattern[j]) {
           j += 1
         }
-        this.failure[i] = j
+        failure[i] = j
       }
+
+      this.failure = failure
     }
 
     let j = 0
