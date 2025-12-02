@@ -13,31 +13,24 @@ function normalize(pattern: string) {
 }
 
 export class HandlerNode {
-  private children: HandlerNode[]
+  private children: Map<string, HandlerNode>
   private permanent: Nullable<Set<EventHandler>> = null
   private temporary: Nullable<Set<EventHandler>> = null
   private wildcard: Nullable<HandlerNode> = null
-  private parent: Nullable<WeakRef<HandlerNode>> = null
   private failure: Nullable<Uint8Array> = null
 
   constructor(
     private pattern: string = EMPTY,
     ...children: HandlerNode[]
   ) {
-    this.children = children
-  }
-
-  private create(pattern?: string, ...children: HandlerNode[]) {
-    const node = new HandlerNode(pattern, ...children)
-    node.parent = new WeakRef(this)
-    return node
+    this.children = new Map(children.map((child) => [child.pattern[0], child]))
   }
 
   clear() {
     this.permanent = null
     this.temporary = null
     this.wildcard = null
-    this.children.length = 0
+    this.children.clear()
   }
 
   insert(pattern: string, handler: EventHandler, isTemporary: boolean = false) {
@@ -46,7 +39,7 @@ export class HandlerNode {
     for (let i = 0; i < patterns.length - 1; i += 1) {
       const part = patterns[i]
       const inserted = current._insert(part)
-      current = inserted.wildcard ??= inserted.create()
+      current = inserted.wildcard ??= new HandlerNode(WILDCARD)
     }
 
     current._insert(patterns.at(-1)!, handler, isTemporary)
@@ -70,38 +63,23 @@ export class HandlerNode {
     let current = this as HandlerNode
     let remain = pattern
 
-    outer: while (remain !== EMPTY) {
-      const [index, exact] = current.binarySearch(remain)
-      if (exact) {
-        remain = EMPTY
-        current = current.children[index]
-        continue outer
+    while (remain !== EMPTY) {
+      const prefix = remain[0]
+      const child = current.children.get(prefix)
+      if (!child) {
+        current.children.set(prefix, (current = new HandlerNode(remain)))
+        break
       }
 
-      const start = Math.max(index - 1, 0)
-      const end = Math.min(index, current.children.length - 1)
-      inner: for (let i = start; i <= end; i += 1) {
-        const child = current.children[i]
-        const match = child.match(remain)
-        if (match === EMPTY) {
-          continue inner
-        }
-
-        if (match === child.pattern) {
-          remain = remain.slice(match.length)
-          current = child
-          continue outer
-        }
-
+      const match = child.match(remain)
+      if (match === child.pattern) {
+        current = child
         remain = remain.slice(match.length)
-        current.children[i] = current = child.split(match)
-        continue outer
+        continue
       }
 
-      const node = current.create(remain)
-      current.children.splice(index, 0, node)
-      remain = EMPTY
-      current = node
+      remain = remain.slice(match.length)
+      current.children.set(prefix, (current = child.split(match)))
     }
 
     if (!handler) {
@@ -116,12 +94,9 @@ export class HandlerNode {
   }
 
   private split(match: string) {
-    const node = new HandlerNode(match, this)
-    node.parent = this.parent
-    this.parent = new WeakRef(node)
     this.pattern = this.pattern.slice(match.length)
     this.failure &&= null
-    return node
+    return new HandlerNode(match, this)
   }
 
   private _remove(handler?: EventHandler): boolean {
@@ -155,18 +130,20 @@ export class HandlerNode {
 
   remove(pattern: string, handler?: EventHandler) {
     const patterns = normalize(pattern).split(WILDCARD)
-
     const end = patterns.length - 1
     let current = this as HandlerNode
+    const stack: Tuple<string, HandlerNode>[] = []
+
     for (let i = 0; i < patterns.length; i += 1) {
       let pattern = patterns[i]
       while (pattern !== EMPTY) {
-        const [child, remain] = current.findChild(pattern)
-        if (!child) {
+        const prefix = pattern[0]
+        const child = current.children.get(prefix)
+        if (!child || !pattern.startsWith(child.pattern)) {
           return
         }
-
-        pattern = remain
+        stack.push([pattern, current])
+        pattern = pattern.slice(child.pattern.length)
         current = child
       }
 
@@ -177,6 +154,7 @@ export class HandlerNode {
       if (!current.wildcard) {
         return
       }
+      stack.push([EMPTY, current])
       current = current.wildcard
     }
 
@@ -187,12 +165,15 @@ export class HandlerNode {
       return
     }
 
-    while (!!current.parent) {
-      const parent = current.parent.deref()!
-      if (!parent.shrink()) {
-        break
+    while (stack.length > 0) {
+      const [pattern, current] = stack.pop()!
+      if (pattern !== EMPTY && current.children.get(pattern[0])?.isEmpty()) {
+        current.children.delete(pattern[0])
       }
-      current = parent
+      if (current.shrink()) {
+        continue
+      }
+      return
     }
   }
 
@@ -200,8 +181,7 @@ export class HandlerNode {
     if (this.wildcard?.isEmpty()) {
       this.wildcard = null
     }
-    this.children = this.children.filter((child) => !child.isEmpty())
-    if (this.children.length > 1) {
+    if (this.children.size > 1) {
       return false
     }
     if (this.permanent?.size) {
@@ -216,8 +196,11 @@ export class HandlerNode {
     if (this.pattern === EMPTY) {
       return false
     }
+    if (this.pattern === WILDCARD) {
+      return true
+    }
 
-    const replace = this.children[0]
+    const replace = this.children.values().next().value
     if (!replace) {
       return true
     }
@@ -228,49 +211,13 @@ export class HandlerNode {
     this.permanent = replace.permanent
     this.temporary = replace.temporary
     this.failure &&= null
-  }
-
-  private findChild(pattern: string): Tuple<Nullable<HandlerNode>, string> {
-    const [index, exact] = this.binarySearch(pattern)
-    if (exact) {
-      return [this.children[index], EMPTY]
-    }
-
-    const start = Math.max(index - 1, 0)
-    const end = Math.min(index, this.children.length - 1)
-
-    for (let i = start; i <= end; i += 1) {
-      const child = this.children[i]
-      if (pattern.startsWith(child.pattern)) {
-        return [child, pattern.slice(child.pattern.length)]
-      }
-    }
-
-    return [null, EMPTY]
+    return true
   }
 
   private isEmpty() {
     return (
-      !this.permanent?.size && !this.temporary?.size && this.children.length === 0 && !this.wildcard
+      !this.permanent?.size && !this.temporary?.size && this.children.size === 0 && !this.wildcard
     )
-  }
-
-  private binarySearch(pattern: string): Tuple<number, boolean> {
-    let low = 0
-    let high = this.children.length
-    while (low < high) {
-      const mid = low + ((high - low) >>> 1)
-      const cmp = this.children[mid].pattern.localeCompare(pattern)
-      if (cmp < 0) {
-        high = mid
-      } else if (cmp > 0) {
-        low = mid + 1
-      } else {
-        return [mid, true]
-      }
-    }
-
-    return [low, false]
   }
 
   *patterns(): Generator<string> {
@@ -285,10 +232,10 @@ export class HandlerNode {
       }
 
       if (current.wildcard) {
-        stack.push([pattern.concat(WILDCARD), current.wildcard])
+        stack.push([pattern, current.wildcard])
       }
 
-      for (const child of current.children) {
+      for (const child of current.children.values()) {
         stack.push([pattern, child])
       }
     }
@@ -332,62 +279,58 @@ export class HandlerNode {
   }
 
   call(pattern: string, args: any[]): boolean {
-    const queue: Queue<Tuple<string, HandlerNode>> = Queue.from([pattern, this])
-    const callStack: HandlerNode[] = []
+    const queue = Queue.from<Tuple<string, HandlerNode>>([pattern, this])
+    const stack: Tuple<string, HandlerNode>[] = [[pattern, this]]
 
     while (queue.length > 0) {
       const [pattern, current] = queue.shift()!
+      stack.push([pattern, current])
+
       if (pattern === EMPTY) {
-        callStack.push(current)
         if (current.wildcard) {
-          callStack.push(current.wildcard)
+          stack.push([EMPTY, current.wildcard])
         }
         continue
       }
 
-      const [child, remain] = current.findChild(pattern)
-      if (child) {
-        queue.push([remain, child])
-      }
-
-      if (!current.wildcard) {
+      if (current.pattern !== WILDCARD) {
+        const child = current.children.get(pattern[0])
+        if (child && pattern.startsWith(child.pattern)) {
+          queue.push([pattern.slice(child.pattern.length), child])
+        }
+        if (current.wildcard) {
+          queue.push([pattern, current.wildcard])
+        }
         continue
       }
 
-      callStack.push(current.wildcard)
-      for (const child of current.wildcard.children) {
+      stack.push([EMPTY, current])
+      for (const child of current.children.values()) {
+        let found = false
         for (const remain of child.kmp(pattern)) {
+          found ||= true
           queue.push([remain, child])
         }
+        if (!found) {
+          continue
+        }
+        stack.push([child.pattern, current])
       }
     }
 
     let called = false
-    outer: while (callStack.length > 0) {
-      let current = callStack.pop()!
-
-      if (current.permanent) {
-        called ||= true
-        current.permanent.forEach((handler) => handler(...args))
+    while (stack.length > 0) {
+      const [pattern, current] = stack.pop()!
+      if (pattern === EMPTY) {
+        current.permanent?.forEach((handler) => (handler(...args), (called ||= true)))
+        current.temporary?.forEach((handler) => (handler(...args), (called ||= true)))
+        current.temporary = null
+      } else if (current.children.get(pattern[0])?.isEmpty()) {
+        current.children.delete(pattern[0])
       }
 
-      if (!current.temporary) {
-        continue outer
-      }
-
-      called ||= true
-      current.temporary.forEach((handler) => handler(...args))
-      current.temporary = null
-
-      inner: while (!!current.parent) {
-        const parent = current.parent.deref()!
-        if (!parent.shrink()) {
-          break inner
-        }
-        current = parent
-      }
+      current.shrink()
     }
-
     return called
   }
 
@@ -399,12 +342,13 @@ export class HandlerNode {
     for (let i = 0; i < patterns.length; i += 1) {
       let pattern = patterns[i]
       while (pattern !== EMPTY) {
-        const [child, remain] = current.findChild(pattern)
-        if (!child) {
+        const prefix = pattern[0]
+        const child = current.children.get(prefix)
+        if (!child || !pattern.startsWith(child.pattern)) {
           return
         }
 
-        pattern = remain
+        pattern = pattern.slice(child.pattern.length)
         current = child
       }
 
@@ -434,12 +378,13 @@ export class HandlerNode {
     for (let i = 0; i < patterns.length; i += 1) {
       let pattern = patterns[i]
       while (pattern !== EMPTY) {
-        const [child, remain] = current.findChild(pattern)
-        if (!child) {
+        const prefix = pattern[0]
+        const child = current.children.get(prefix)
+        if (!child || !pattern.startsWith(child.pattern)) {
           return
         }
 
-        pattern = remain
+        pattern = pattern.slice(child.pattern.length)
         current = child
       }
 
