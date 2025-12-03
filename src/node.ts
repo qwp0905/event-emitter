@@ -327,10 +327,11 @@ export class HandlerNode {
 
       inner: while (stack.length > 0) {
         const [prefix, current] = stack.pop()!
-        if (current.wildcard) {
-          current.wildcard.permanent?.forEach((handler) => (handler(...args), (called ||= true)))
-          current.wildcard.temporary?.forEach((handler) => (handler(...args), (called ||= true)))
-          current.wildcard.temporary = null
+        const wildcard = current.wildcard
+        if (wildcard) {
+          wildcard.permanent?.forEach((handler) => (handler(...args), (called ||= true)))
+          wildcard.temporary?.forEach((handler) => (handler(...args), (called ||= true)))
+          wildcard.temporary = null
         }
         if (prefix === EMPTY) {
           current.permanent?.forEach((handler) => (handler(...args), (called ||= true)))
