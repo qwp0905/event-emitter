@@ -1,4 +1,3 @@
-import { Queue } from "./queue"
 import { Nullable, Tuple } from "./type"
 
 export interface EventHandler {
@@ -274,14 +273,13 @@ export class HandlerNode {
   }
 
   call(pattern: string, args: any[]): boolean {
-    const queue = Queue.from<Tuple<Tuple<string, HandlerNode>, Tuple<string, HandlerNode>[]>>([
-      [pattern, this],
-      []
-    ])
+    const search: Tuple<Tuple<string, HandlerNode>, Tuple<string, HandlerNode>[]>[] = [
+      [[pattern, this], []]
+    ]
     const branches: Tuple<string, HandlerNode>[][] = []
 
-    while (queue.length > 0) {
-      const [[pattern, current], stack] = queue.shift()!
+    while (search.length > 0) {
+      const [[pattern, current], stack] = search.pop()!
       if (pattern === EMPTY) {
         stack.push([EMPTY, current])
         branches.push(stack)
@@ -298,20 +296,20 @@ export class HandlerNode {
         }
 
         stack.push([prefix, current])
-        queue.push([[pattern.slice(child.pattern.length), child], stack])
+        search.push([[pattern.slice(child.pattern.length), child], stack])
         continue
       }
 
       stack.push([prefix, current])
       branches.push(stack)
       if (hasChild) {
-        queue.push([[pattern.slice(child.pattern.length), child], []])
+        search.push([[pattern.slice(child.pattern.length), child], []])
       }
 
       for (const child of current.wildcard.children.values()) {
         const wildcard: Tuple<string, HandlerNode> = [child.pattern, current.wildcard]
         for (const remain of child.kmp(pattern)) {
-          queue.push([[remain, child], [wildcard]])
+          search.push([[remain, child], [wildcard]])
         }
       }
     }
