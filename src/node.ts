@@ -39,7 +39,7 @@ export class HandlerNode {
     for (let i = 0; i < patterns.length - 1; i += 1) {
       const part = patterns[i]
       const inserted = current._insert(part)
-      current = inserted.wildcard ??= new HandlerNode(WILDCARD)
+      current = inserted.wildcard ??= new HandlerNode()
     }
 
     current._insert(patterns.at(-1)!, handler, isTemporary)
@@ -196,9 +196,6 @@ export class HandlerNode {
     if (this.pattern === EMPTY) {
       return false
     }
-    if (this.pattern === WILDCARD) {
-      return true
-    }
 
     const replace = this.children.values().next().value
     if (!replace) {
@@ -279,58 +276,69 @@ export class HandlerNode {
   }
 
   call(pattern: string, args: any[]): boolean {
-    const queue = Queue.from<Tuple<string, HandlerNode>>([pattern, this])
-    const stack: Tuple<string, HandlerNode>[] = []
+    const queue = Queue.from<Tuple<Tuple<string, HandlerNode>, Tuple<string, HandlerNode>[]>>([
+      [pattern, this],
+      []
+    ])
+    const branches: Tuple<string, HandlerNode>[][] = []
 
     while (queue.length > 0) {
-      const [pattern, current] = queue.shift()!
+      const [[pattern, current], stack] = queue.shift()!
       stack.push([pattern, current])
 
       if (pattern === EMPTY) {
         if (current.wildcard) {
           stack.push([EMPTY, current.wildcard])
         }
+        branches.push(stack)
         continue
       }
 
-      if (current.pattern !== WILDCARD) {
-        const child = current.children.get(pattern[0])
-        if (child && pattern.startsWith(child.pattern)) {
-          queue.push([pattern.slice(child.pattern.length), child])
-        }
-        if (current.wildcard) {
-          queue.push([pattern, current.wildcard])
-        }
-        continue
-      }
-
-      stack.push([EMPTY, current])
-      for (const child of current.children.values()) {
-        let found = false
-        for (const remain of child.kmp(pattern)) {
-          found ||= true
-          queue.push([remain, child])
-        }
-        if (!found) {
+      const child = current.children.get(pattern[0])
+      const hasChild = child && pattern.startsWith(child.pattern)
+      if (!current.wildcard) {
+        if (!hasChild) {
           continue
         }
-        stack.push([child.pattern, current])
+
+        queue.push([[pattern.slice(child.pattern.length), child], stack])
+        continue
+      }
+
+      stack.push([EMPTY, current.wildcard])
+      branches.push(stack)
+      if (hasChild) {
+        queue.push([[pattern.slice(child.pattern.length), child], []])
+      }
+
+      for (const child of current.wildcard.children.values()) {
+        const wildcard: Tuple<string, HandlerNode> = [child.pattern, current.wildcard]
+        for (const remain of child.kmp(pattern)) {
+          queue.push([[remain, child], [wildcard]])
+        }
       }
     }
 
     let called = false
-    while (stack.length > 0) {
-      const [pattern, current] = stack.pop()!
-      if (pattern === EMPTY) {
-        current.permanent?.forEach((handler) => (handler(...args), (called ||= true)))
-        current.temporary?.forEach((handler) => (handler(...args), (called ||= true)))
-        current.temporary = null
-      } else if (current.children.get(pattern[0])?.isEmpty()) {
-        current.children.delete(pattern[0])
-      }
+    while (branches.length > 0) {
+      const stack = branches.pop()!
 
-      current.shrink()
+      inner: while (stack.length > 0) {
+        const [pattern, current] = stack.pop()!
+        if (pattern === EMPTY) {
+          current.permanent?.forEach((handler) => (handler(...args), (called ||= true)))
+          current.temporary?.forEach((handler) => (handler(...args), (called ||= true)))
+          current.temporary = null
+        } else if (current.children.get(pattern[0])?.isEmpty()) {
+          current.children.delete(pattern[0])
+        }
+
+        if (!current.shrink()) {
+          break inner
+        }
+      }
     }
+
     return called
   }
 
