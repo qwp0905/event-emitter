@@ -280,7 +280,7 @@ export class HandlerNode {
 
   call(pattern: string, args: any[]): boolean {
     const queue = Queue.from<Tuple<string, HandlerNode>>([pattern, this])
-    const stack: Tuple<string, HandlerNode>[] = [[pattern, this]]
+    const stack: Tuple<string, HandlerNode>[] = []
 
     while (queue.length > 0) {
       const [pattern, current] = queue.shift()!
