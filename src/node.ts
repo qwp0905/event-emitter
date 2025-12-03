@@ -129,8 +129,7 @@ export class HandlerNode {
     let current = this as HandlerNode
     const stack: Tuple<string, HandlerNode>[] = []
 
-    for (let i = 0; i < patterns.length; i += 1) {
-      let pattern = patterns[i]
+    for (let i = 0, pattern = patterns[0]; i < patterns.length; pattern = patterns[++i]) {
       while (pattern !== EMPTY) {
         const prefix = pattern[0]
         const child = current.children?.get(prefix)
@@ -163,7 +162,7 @@ export class HandlerNode {
     while (stack.length > 0) {
       const [prefix, current] = stack.pop()!
       if (prefix !== EMPTY && current.children?.get(prefix)?.isEmpty()) {
-        if (current.children?.delete(prefix) && current.children.size === 0) {
+        if (current.children.delete(prefix) && current.children.size === 0) {
           current.children = null
         }
       }
@@ -192,12 +191,11 @@ export class HandlerNode {
     if (this.pattern === EMPTY) {
       return true
     }
-
-    const replace = this.children?.values().next().value
-    if (!replace) {
+    if (!this.children) {
       return true
     }
 
+    const replace = this.children.values().next().value!
     this.pattern += replace.pattern
     this.children = replace.children
     this.wildcard = replace.wildcard
