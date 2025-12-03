@@ -211,7 +211,7 @@ export class HandlerNode {
     return true
   }
 
-  private isEmpty() {
+  isEmpty() {
     return (
       !this.permanent?.size && !this.temporary?.size && this.children.size === 0 && !this.wildcard
     )
