@@ -36,8 +36,7 @@ export class HandlerNode {
   insert(pattern: string, handler: EventHandler, isTemporary: boolean = false) {
     let current = this as HandlerNode
     const patterns = normalize(pattern).split(WILDCARD)
-    for (let i = 0; i < patterns.length - 1; i += 1) {
-      const part = patterns[i]
+    for (let i = 0, part = patterns[0]; i < patterns.length - 1; part = patterns[++i]) {
       const inserted = current._insert(part)
       current = inserted.wildcard ??= new HandlerNode()
     }
@@ -290,8 +289,8 @@ export class HandlerNode {
       }
 
       const prefix = pattern[0]
-
       const child = current.children.get(prefix)
+
       const hasChild = child && pattern.startsWith(child.pattern)
       if (!current.wildcard) {
         if (!hasChild) {
@@ -345,7 +344,7 @@ export class HandlerNode {
     return called
   }
 
-  *find(pattern: string): Generator<EventHandler> {
+  *handlers(pattern: string): Generator<EventHandler> {
     const patterns = normalize(pattern).split(WILDCARD)
 
     const end = patterns.length - 1
@@ -381,7 +380,7 @@ export class HandlerNode {
     }
   }
 
-  count(pattern: string) {
+  handlersCount(pattern: string) {
     const patterns = normalize(pattern).split(WILDCARD)
 
     const end = patterns.length - 1
