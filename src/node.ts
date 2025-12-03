@@ -354,8 +354,7 @@ export class HandlerNode {
 
     const end = patterns.length - 1
     let current: HandlerNode = this as HandlerNode
-    for (let i = 0; i < patterns.length; i += 1) {
-      let pattern = patterns[i]
+    for (let i = 0, pattern = patterns[0]; i < patterns.length; pattern = patterns[++i]) {
       while (pattern !== EMPTY) {
         const prefix = pattern[0]
         const child = current.children?.get(prefix)
@@ -390,8 +389,7 @@ export class HandlerNode {
 
     const end = patterns.length - 1
     let current: HandlerNode = this as HandlerNode
-    for (let i = 0; i < patterns.length; i += 1) {
-      let pattern = patterns[i]
+    for (let i = 0, pattern = patterns[0]; i < patterns.length; pattern = patterns[++i]) {
       while (pattern !== EMPTY) {
         const prefix = pattern[0]
         const child = current.children?.get(prefix)
