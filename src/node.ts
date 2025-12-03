@@ -298,10 +298,9 @@ export class HandlerNode {
         const childPattern = child.pattern
         let wildcard: Tuple<string, HandlerNode>
 
-        // kmp
         const failure = child.getFailure()
         const m = childPattern.length
-        for (let i = 0, j = 0; i < n; i += 1) {
+        kmp: for (let i = 0, j = 0; i < n; i += 1) {
           while (j > 0 && pattern[i] !== childPattern[j]) {
             j = failure[j - 1]
           }
@@ -309,7 +308,7 @@ export class HandlerNode {
             j += 1
           }
           if (j !== m) {
-            continue
+            continue kmp
           }
 
           wildcard ??= [childPattern[0], current.wildcard]
