@@ -12,24 +12,19 @@ function normalize(pattern: string) {
 }
 
 export class HandlerNode {
-  private children: Map<string, HandlerNode>
+  private children: Nullable<Map<string, HandlerNode>> = null
   private permanent: Nullable<Set<EventHandler>> = null
   private temporary: Nullable<Set<EventHandler>> = null
   private wildcard: Nullable<HandlerNode> = null
   private failure: Nullable<Uint8Array> = null
 
-  constructor(
-    private pattern: string = EMPTY,
-    ...children: HandlerNode[]
-  ) {
-    this.children = new Map(children.map((child) => [child.pattern[0], child]))
-  }
+  constructor(private pattern: string = EMPTY) {}
 
   clear() {
     this.permanent = null
     this.temporary = null
     this.wildcard = null
-    this.children.clear()
+    this.children = null
   }
 
   insert(pattern: string, handler: EventHandler, isTemporary: boolean = false) {
@@ -63,9 +58,9 @@ export class HandlerNode {
 
     while (remain !== EMPTY) {
       const prefix = remain[0]
-      const child = current.children.get(prefix)
+      const child = current.children?.get(prefix)
       if (!child) {
-        current.children.set(prefix, (current = new HandlerNode(remain)))
+        ;(current.children ??= new Map()).set(prefix, (current = new HandlerNode(remain)))
         break
       }
 
@@ -77,7 +72,7 @@ export class HandlerNode {
       }
 
       remain = remain.slice(match.length)
-      current.children.set(prefix, (current = child.split(match)))
+      ;(current.children ??= new Map()).set(prefix, (current = child.split(match)))
     }
 
     if (!handler) {
@@ -94,7 +89,9 @@ export class HandlerNode {
   private split(match: string) {
     this.pattern = this.pattern.slice(match.length)
     this.failure &&= null
-    return new HandlerNode(match, this)
+    const node = new HandlerNode(match)
+    node.children = new Map([[this.pattern[0], this]])
+    return node
   }
 
   private _remove(handler?: EventHandler): boolean {
@@ -136,7 +133,7 @@ export class HandlerNode {
       let pattern = patterns[i]
       while (pattern !== EMPTY) {
         const prefix = pattern[0]
-        const child = current.children.get(prefix)
+        const child = current.children?.get(prefix)
         if (!child || !pattern.startsWith(child.pattern)) {
           return
         }
@@ -165,8 +162,10 @@ export class HandlerNode {
 
     while (stack.length > 0) {
       const [prefix, current] = stack.pop()!
-      if (prefix !== EMPTY && current.children.get(prefix)?.isEmpty()) {
-        current.children.delete(prefix)
+      if (prefix !== EMPTY && current.children?.get(prefix)?.isEmpty()) {
+        if (current.children?.delete(prefix) && current.children.size === 0) {
+          current.children = null
+        }
       }
       if (!current.shrink()) {
         break
@@ -178,7 +177,7 @@ export class HandlerNode {
     if (this.wildcard?.isEmpty()) {
       this.wildcard = null
     }
-    if (this.children.size > 1) {
+    if (this.children?.size ?? 0 > 1) {
       return false
     }
     if (this.permanent?.size) {
@@ -194,7 +193,7 @@ export class HandlerNode {
       return true
     }
 
-    const replace = this.children.values().next().value
+    const replace = this.children?.values().next().value
     if (!replace) {
       return true
     }
@@ -209,9 +208,7 @@ export class HandlerNode {
   }
 
   isEmpty() {
-    return (
-      !this.permanent?.size && !this.temporary?.size && this.children.size === 0 && !this.wildcard
-    )
+    return !this.permanent?.size && !this.temporary?.size && !this.children && !this.wildcard
   }
 
   *patterns(): Generator<string> {
@@ -227,6 +224,9 @@ export class HandlerNode {
 
       if (current.wildcard) {
         stack.push([pattern.concat(WILDCARD), current.wildcard])
+      }
+      if (!current.children) {
+        continue
       }
 
       for (const child of current.children.values()) {
@@ -273,7 +273,7 @@ export class HandlerNode {
       }
 
       const prefix = pattern[0]
-      const child = current.children.get(prefix)
+      const child = current.children?.get(prefix)
 
       const hasChild = child && pattern.startsWith(child.pattern)
       if (!current.wildcard) {
@@ -290,6 +290,9 @@ export class HandlerNode {
       branches.push(stack)
       if (hasChild) {
         search.push([pattern.slice(child.pattern.length), child, []])
+      }
+      if (!current.wildcard.children) {
+        continue
       }
 
       const n = pattern.length
@@ -333,8 +336,10 @@ export class HandlerNode {
           current.permanent?.forEach((handler) => (handler(...args), (called ||= true)))
           current.temporary?.forEach((handler) => (handler(...args), (called ||= true)))
           current.temporary = null
-        } else if (current.children.get(prefix)?.isEmpty()) {
-          current.children.delete(prefix)
+        } else if (current.children?.get(prefix)?.isEmpty()) {
+          if (current.children.delete(prefix) && current.children.size === 0) {
+            current.children = null
+          }
         }
 
         if (!current.shrink()) {
@@ -355,7 +360,7 @@ export class HandlerNode {
       let pattern = patterns[i]
       while (pattern !== EMPTY) {
         const prefix = pattern[0]
-        const child = current.children.get(prefix)
+        const child = current.children?.get(prefix)
         if (!child || !pattern.startsWith(child.pattern)) {
           return
         }
@@ -391,7 +396,7 @@ export class HandlerNode {
       let pattern = patterns[i]
       while (pattern !== EMPTY) {
         const prefix = pattern[0]
-        const child = current.children.get(prefix)
+        const child = current.children?.get(prefix)
         if (!child || !pattern.startsWith(child.pattern)) {
           return
         }
