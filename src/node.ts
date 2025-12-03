@@ -235,41 +235,27 @@ export class HandlerNode {
     }
   }
 
-  private *kmp(text: string): Generator<string> {
-    const n = text.length
-    const m = this.pattern.length
-    if (!this.failure) {
-      const failure = new Uint8Array(m)
-      let j = 0
-
-      for (let i = 1; i < m; i += 1) {
-        while (j > 0 && this.pattern[i] !== this.pattern[j]) {
-          j = failure[j - 1]
-        }
-        if (this.pattern[i] === this.pattern[j]) {
-          j += 1
-        }
-        failure[i] = j
-      }
-
-      this.failure = failure
+  private getFailure(): Uint8Array {
+    if (this.failure) {
+      return this.failure
     }
 
+    const pattern = this.pattern
+    const m = pattern.length
+    const failure = new Uint8Array(m)
     let j = 0
-    for (let i = 0; i < n; i += 1) {
-      while (j > 0 && text[i] !== this.pattern[j]) {
-        j = this.failure[j - 1]
+
+    for (let i = 1; i < m; i += 1) {
+      while (j > 0 && pattern[i] !== pattern[j]) {
+        j = failure[j - 1]
       }
-      if (text[i] === this.pattern[j]) {
+      if (pattern[i] === pattern[j]) {
         j += 1
       }
-      if (j !== m) {
-        continue
-      }
-
-      yield text.slice(i + 1)
-      j = this.failure[j - 1]
+      failure[i] = j
     }
+
+    return (this.failure = failure)
   }
 
   call(pattern: string, args: any[]): boolean {
@@ -306,10 +292,27 @@ export class HandlerNode {
         search.push([pattern.slice(child.pattern.length), child, []])
       }
 
+      const n = pattern.length
       for (const child of current.wildcard.children.values()) {
         const wildcard: Tuple<string, HandlerNode> = [child.pattern, current.wildcard]
-        for (const remain of child.kmp(pattern)) {
-          search.push([remain, child, [wildcard]])
+
+        // kmp
+        const failure = child.getFailure()
+        const childPattern = child.pattern
+        const m = childPattern.length
+        for (let i = 0, j = 0; i < n; i += 1) {
+          while (j > 0 && pattern[i] !== childPattern[j]) {
+            j = failure[j - 1]
+          }
+          if (pattern[i] === childPattern[j]) {
+            j += 1
+          }
+          if (j !== m) {
+            continue
+          }
+
+          search.push([pattern.slice(i + 1), child, [wildcard]])
+          j = failure[j - 1]
         }
       }
     }
