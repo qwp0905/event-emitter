@@ -294,11 +294,11 @@ export class HandlerNode {
 
       const n = pattern.length
       for (const child of current.wildcard.children.values()) {
-        const wildcard: Tuple<string, HandlerNode> = [child.pattern, current.wildcard]
+        const childPattern = child.pattern
+        let wildcard: Tuple<string, HandlerNode>
 
         // kmp
         const failure = child.getFailure()
-        const childPattern = child.pattern
         const m = childPattern.length
         for (let i = 0, j = 0; i < n; i += 1) {
           while (j > 0 && pattern[i] !== childPattern[j]) {
@@ -311,6 +311,7 @@ export class HandlerNode {
             continue
           }
 
+          wildcard ??= [childPattern[0], current.wildcard]
           search.push([pattern.slice(i + 1), child, [wildcard]])
           j = failure[j - 1]
         }
