@@ -142,7 +142,7 @@ export class HandlerNode {
         if (!child || !pattern.startsWith(child.pattern)) {
           return
         }
-        stack.push([pattern, current])
+        stack.push([prefix, current])
         pattern = pattern.slice(child.pattern.length)
         current = child
       }
@@ -166,9 +166,9 @@ export class HandlerNode {
     }
 
     while (stack.length > 0) {
-      const [pattern, current] = stack.pop()!
-      if (pattern !== EMPTY && current.children.get(pattern[0])?.isEmpty()) {
-        current.children.delete(pattern[0])
+      const [prefix, current] = stack.pop()!
+      if (prefix !== EMPTY && current.children.get(prefix)?.isEmpty()) {
+        current.children.delete(prefix)
       }
       if (current.shrink()) {
         continue
@@ -284,24 +284,27 @@ export class HandlerNode {
 
     while (queue.length > 0) {
       const [[pattern, current], stack] = queue.shift()!
-      stack.push([pattern, current])
-
       if (pattern === EMPTY) {
+        stack.push([EMPTY, current])
         branches.push(stack)
         continue
       }
 
-      const child = current.children.get(pattern[0])
+      const prefix = pattern[0]
+
+      const child = current.children.get(prefix)
       const hasChild = child && pattern.startsWith(child.pattern)
       if (!current.wildcard) {
         if (!hasChild) {
           continue
         }
 
+        stack.push([prefix, current])
         queue.push([[pattern.slice(child.pattern.length), child], stack])
         continue
       }
 
+      stack.push([prefix, current])
       branches.push(stack)
       if (hasChild) {
         queue.push([[pattern.slice(child.pattern.length), child], []])
@@ -320,18 +323,18 @@ export class HandlerNode {
       const stack = branches.pop()!
 
       inner: while (stack.length > 0) {
-        const [pattern, current] = stack.pop()!
+        const [prefix, current] = stack.pop()!
         if (current.wildcard) {
           current.wildcard.permanent?.forEach((handler) => (handler(...args), (called ||= true)))
           current.wildcard.temporary?.forEach((handler) => (handler(...args), (called ||= true)))
           current.wildcard.temporary = null
         }
-        if (pattern === EMPTY) {
+        if (prefix === EMPTY) {
           current.permanent?.forEach((handler) => (handler(...args), (called ||= true)))
           current.temporary?.forEach((handler) => (handler(...args), (called ||= true)))
           current.temporary = null
-        } else if (current.children.get(pattern[0])?.isEmpty()) {
-          current.children.delete(pattern[0])
+        } else if (current.children.get(prefix)?.isEmpty()) {
+          current.children.delete(prefix)
         }
 
         if (!current.shrink()) {
