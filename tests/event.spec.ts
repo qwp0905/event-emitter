@@ -84,6 +84,22 @@ describe("EventEmitter", () => {
     expect(handler5).toHaveBeenCalledTimes(1)
   })
 
+  it("should emit event with nested wildcard", () => {
+    const handler1 = jest.fn()
+    const handler2 = jest.fn()
+
+    ev.on("a*a", handler1)
+    ev.on("a", handler2)
+
+    expect(ev.emit("a")).toBe(true)
+    expect(handler1).toHaveBeenCalledTimes(0)
+    expect(handler2).toHaveBeenCalledTimes(1)
+
+    expect(ev.emit("aa")).toBe(true)
+    expect(handler1).toHaveBeenCalledTimes(1)
+    expect(handler2).toHaveBeenCalledTimes(1)
+  })
+
   it("should emit event with symbol", () => {
     const pattern = Symbol()
     const handler = jest.fn()

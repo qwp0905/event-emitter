@@ -229,7 +229,7 @@ export class HandlerNode {
       }
 
       if (current.wildcard) {
-        stack.push([pattern, current.wildcard])
+        stack.push([pattern.concat(WILDCARD), current.wildcard])
       }
 
       for (const child of current.children.values()) {
@@ -287,9 +287,6 @@ export class HandlerNode {
       stack.push([pattern, current])
 
       if (pattern === EMPTY) {
-        if (current.wildcard) {
-          stack.push([EMPTY, current.wildcard])
-        }
         branches.push(stack)
         continue
       }
@@ -305,7 +302,6 @@ export class HandlerNode {
         continue
       }
 
-      stack.push([EMPTY, current.wildcard])
       branches.push(stack)
       if (hasChild) {
         queue.push([[pattern.slice(child.pattern.length), child], []])
@@ -325,6 +321,11 @@ export class HandlerNode {
 
       inner: while (stack.length > 0) {
         const [pattern, current] = stack.pop()!
+        if (current.wildcard) {
+          current.wildcard.permanent?.forEach((handler) => (handler(...args), (called ||= true)))
+          current.wildcard.temporary?.forEach((handler) => (handler(...args), (called ||= true)))
+          current.wildcard.temporary = null
+        }
         if (pattern === EMPTY) {
           current.permanent?.forEach((handler) => (handler(...args), (called ||= true)))
           current.temporary?.forEach((handler) => (handler(...args), (called ||= true)))
