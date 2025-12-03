@@ -32,4 +32,22 @@ describe("HandlerNode", () => {
 
     expect(node.isEmpty()).toBe(true)
   })
+
+  it("should remove when temporary called", () => {
+    node.insert("abcc", () => {})
+    node.insert("a*c", () => {})
+    node.insert("*c", () => {})
+    node.insert("*", () => {})
+    node.insert("*cc", () => {})
+    node.insert("*b*", () => {})
+
+    node.remove("abcc")
+    node.remove("a*c")
+    node.remove("*c")
+    node.remove("*")
+    node.remove("*cc")
+    node.remove("*b*")
+
+    expect(node.isEmpty()).toBe(true)
+  })
 })

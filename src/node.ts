@@ -170,10 +170,9 @@ export class HandlerNode {
       if (prefix !== EMPTY && current.children.get(prefix)?.isEmpty()) {
         current.children.delete(prefix)
       }
-      if (current.shrink()) {
-        continue
+      if (!current.shrink()) {
+        break
       }
-      return
     }
   }
 
@@ -194,7 +193,7 @@ export class HandlerNode {
       return false
     }
     if (this.pattern === EMPTY) {
-      return false
+      return true
     }
 
     const replace = this.children.values().next().value
