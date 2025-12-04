@@ -179,12 +179,12 @@ export class PatternMatcher {
     let current = this.root as HandlerNode
     const stack: Tuple<string, HandlerNode>[] = []
 
-    for (let i = 0, pattern = patterns[0]; i < patterns.length; pattern = patterns[++i]) {
+    for (let i = 0, remain = patterns[0]; i < patterns.length; remain = patterns[++i]) {
       let cursor = 0
-      while (cursor < pattern.length) {
-        const prefix = pattern[cursor]
+      while (cursor < remain.length) {
+        const prefix = remain[cursor]
         const child = current.children?.get(prefix)
-        if (!child || !pattern.startsWith(child.pattern, cursor)) {
+        if (!child || !remain.startsWith(child.pattern, cursor)) {
           return
         }
 
@@ -351,12 +351,12 @@ export class PatternMatcher {
 
     const end = patterns.length - 1
     let current: HandlerNode = this.root as HandlerNode
-    for (let i = 0, pattern = patterns[0]; i < patterns.length; pattern = patterns[++i]) {
+    for (let i = 0, remain = patterns[0]; i < patterns.length; remain = patterns[++i]) {
       let cursor = 0
-      while (cursor < pattern.length) {
-        const prefix = pattern[cursor]
+      while (cursor < remain.length) {
+        const prefix = remain[cursor]
         const child = current.children?.get(prefix)
-        if (!child || !pattern.startsWith(child.pattern, cursor)) {
+        if (!child || !remain.startsWith(child.pattern, cursor)) {
           return
         }
 
@@ -386,12 +386,12 @@ export class PatternMatcher {
     const patterns = normalize(pattern).split(WILDCARD)
     const end = patterns.length - 1
     let current: HandlerNode = this.root as HandlerNode
-    for (let i = 0, pattern = patterns[0]; i < patterns.length; pattern = patterns[++i]) {
+    for (let i = 0, remain = patterns[0]; i < patterns.length; remain = patterns[++i]) {
       let cursor = 0
-      while (cursor < pattern.length) {
-        const prefix = pattern[cursor]
+      while (cursor < remain.length) {
+        const prefix = remain[cursor]
         const child = current.children?.get(prefix)
-        if (!child || !pattern.startsWith(child.pattern, cursor)) {
+        if (!child || !remain.startsWith(child.pattern, cursor)) {
           return
         }
 
