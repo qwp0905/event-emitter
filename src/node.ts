@@ -68,9 +68,6 @@ class HandlerNode {
   }
 
   shrink() {
-    if (this.wildcard?.isEmpty()) {
-      this.wildcard = null
-    }
     if (this.permanent?.size) {
       return false
     }
@@ -215,7 +212,11 @@ export class PatternMatcher {
 
     while (stack.length > 0) {
       const [prefix, current] = stack.pop()!
-      if (prefix !== EMPTY && current.children?.get(prefix)?.isEmpty()) {
+      if (prefix === EMPTY) {
+        if (current.wildcard?.isEmpty()) {
+          current.wildcard = null
+        }
+      } else if (current.children?.get(prefix)?.isEmpty()) {
         if (current.children.delete(prefix) && current.children.size === 0) {
           current.children = null
         }
@@ -322,6 +323,9 @@ export class PatternMatcher {
           wildcard.permanent?.forEach((handler) => (handler(...args), (called ||= true)))
           wildcard.temporary?.forEach((handler) => (handler(...args), (called ||= true)))
           wildcard.temporary = null
+          if (wildcard.isEmpty()) {
+            current.wildcard = null
+          }
         }
         if (prefix === EMPTY) {
           current.permanent?.forEach((handler) => (handler(...args), (called ||= true)))
