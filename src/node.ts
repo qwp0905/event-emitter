@@ -176,9 +176,6 @@ export class HandlerNode {
     if (this.wildcard?.isEmpty()) {
       this.wildcard = null
     }
-    if (this.children?.size ?? 0 > 1) {
-      return false
-    }
     if (this.permanent?.size) {
       return false
     }
@@ -188,10 +185,13 @@ export class HandlerNode {
     if (this.wildcard) {
       return false
     }
-    if (this.pattern === EMPTY) {
+    if (!this.children) {
       return true
     }
-    if (!this.children) {
+    if (this.children.size > 1) {
+      return false
+    }
+    if (this.pattern === EMPTY) {
       return true
     }
 
