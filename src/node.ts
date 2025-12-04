@@ -234,7 +234,7 @@ export class HandlerNode {
   }
 
   private getFailure(): Uint8Array {
-    if (this.failure) {
+    if (this.failure !== null) {
       return this.failure
     }
 
