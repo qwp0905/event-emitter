@@ -20,14 +20,14 @@ class HandlerNode {
 
   constructor(public pattern: string = EMPTY) {}
 
-  match(pattern: string): string {
-    const len = Math.min(this.pattern.length, pattern.length)
-    for (let i = 0; i < len; i += 1) {
-      if (this.pattern[i] !== pattern[i]) {
-        return pattern.slice(0, i)
+  match(pattern: string, cursor: number): string {
+    const len = Math.min(this.pattern.length, pattern.length - cursor)
+    for (let i = 0, j = cursor; i < len; i += 1, j += 1) {
+      if (this.pattern[i] !== pattern[j]) {
+        return pattern.slice(cursor, j)
       }
     }
-    return pattern.slice(0, len)
+    return pattern.slice(cursor, len + cursor)
   }
 
   split(match: string) {
@@ -143,23 +143,25 @@ export class PatternMatcher {
     let current = this.root as HandlerNode
     const end = patterns.length - 1
     for (let i = 0, remain = patterns[0]; i < patterns.length; remain = patterns[++i]) {
-      inner: while (remain !== EMPTY) {
-        const prefix = remain[0]
+      let cursor = 0
+      inner: while (cursor < remain.length) {
+        const prefix = remain[cursor]
         const child = current.children?.get(prefix)
         if (!child) {
-          ;(current.children ??= new Map()).set(prefix, (current = new HandlerNode(remain)))
+          current.children ??= new Map()
+          current.children.set(prefix, (current = new HandlerNode(remain.slice(cursor))))
           break inner
         }
 
-        const match = child.match(remain)
+        const match = child.match(remain, cursor)
+        cursor += match.length
         if (match === child.pattern) {
           current = child
-          remain = remain.slice(match.length)
           continue inner
         }
 
-        remain = remain.slice(match.length)
-        ;(current.children ??= new Map()).set(prefix, (current = child.split(match)))
+        current.children ??= new Map()
+        current.children.set(prefix, (current = child.split(match)))
       }
 
       if (i === end) {
@@ -181,14 +183,16 @@ export class PatternMatcher {
     const stack: Tuple<string, HandlerNode>[] = []
 
     for (let i = 0, pattern = patterns[0]; i < patterns.length; pattern = patterns[++i]) {
-      while (pattern !== EMPTY) {
-        const prefix = pattern[0]
+      let cursor = 0
+      while (cursor < pattern.length) {
+        const prefix = pattern[cursor]
         const child = current.children?.get(prefix)
-        if (!child || !pattern.startsWith(child.pattern)) {
+        if (!child || !pattern.startsWith(child.pattern, cursor)) {
           return
         }
+
         stack.push([prefix, current])
-        pattern = pattern.slice(child.pattern.length)
+        cursor += child.pattern.length
         current = child
       }
 
@@ -248,49 +252,49 @@ export class PatternMatcher {
   }
 
   call(pattern: string, args: any[]): boolean {
-    const search: Triple<string, HandlerNode, Tuple<string, HandlerNode>[]>[] = []
-    search.push([pattern, this.root, []])
+    const search: Triple<number, HandlerNode, Tuple<string, HandlerNode>[]>[] = []
+    search.push([0, this.root, []])
     const branches: Tuple<string, HandlerNode>[][] = []
+    const len = pattern.length
 
     while (search.length > 0) {
-      const [pattern, current, stack] = search.pop()!
-      if (pattern === EMPTY) {
+      const [cursor, current, stack] = search.pop()!
+      if (cursor === len) {
         stack.push([EMPTY, current])
         branches.push(stack)
         continue
       }
 
-      const prefix = pattern[0]
+      const prefix = pattern[cursor]
       const child = current.children?.get(prefix)
 
-      const hasChild = child && pattern.startsWith(child.pattern)
+      const hasChild = child && pattern.startsWith(child.pattern, cursor)
       if (!current.wildcard) {
         if (!hasChild) {
           continue
         }
 
         stack.push([prefix, current])
-        search.push([pattern.slice(child.pattern.length), child, stack])
+        search.push([cursor + child.pattern.length, child, stack])
         continue
       }
 
       stack.push([prefix, current])
       branches.push(stack)
       if (hasChild) {
-        search.push([pattern.slice(child.pattern.length), child, []])
+        search.push([cursor + child.pattern.length, child, []])
       }
       if (!current.wildcard.children) {
         continue
       }
 
-      const n = pattern.length
       for (const child of current.wildcard.children.values()) {
         const childPattern = child.pattern
         let wildcard: Tuple<string, HandlerNode>
 
         const failure = child.getFailure()
         const m = childPattern.length
-        kmp: for (let i = 0, j = 0; i < n; i += 1) {
+        kmp: for (let i = cursor, j = 0; i < len; i += 1) {
           while (j > 0 && pattern[i] !== childPattern[j]) {
             j = failure[j - 1]
           }
@@ -302,7 +306,7 @@ export class PatternMatcher {
           }
 
           wildcard ??= [childPattern[0], current.wildcard]
-          search.push([pattern.slice(i + 1), child, [wildcard]])
+          search.push([i + 1, child, [wildcard]])
           j = failure[j - 1]
         }
       }
@@ -345,14 +349,15 @@ export class PatternMatcher {
     const end = patterns.length - 1
     let current: HandlerNode = this.root as HandlerNode
     for (let i = 0, pattern = patterns[0]; i < patterns.length; pattern = patterns[++i]) {
-      while (pattern !== EMPTY) {
-        const prefix = pattern[0]
+      let cursor = 0
+      while (cursor < pattern.length) {
+        const prefix = pattern[cursor]
         const child = current.children?.get(prefix)
-        if (!child || !pattern.startsWith(child.pattern)) {
+        if (!child || !pattern.startsWith(child.pattern, cursor)) {
           return
         }
 
-        pattern = pattern.slice(child.pattern.length)
+        cursor += child.pattern.length
         current = child
       }
 
@@ -379,14 +384,15 @@ export class PatternMatcher {
     const end = patterns.length - 1
     let current: HandlerNode = this.root as HandlerNode
     for (let i = 0, pattern = patterns[0]; i < patterns.length; pattern = patterns[++i]) {
-      while (pattern !== EMPTY) {
-        const prefix = pattern[0]
+      let cursor = 0
+      while (cursor < pattern.length) {
+        const prefix = pattern[cursor]
         const child = current.children?.get(prefix)
-        if (!child || !pattern.startsWith(child.pattern)) {
+        if (!child || !pattern.startsWith(child.pattern, cursor)) {
           return
         }
 
-        pattern = pattern.slice(child.pattern.length)
+        cursor += child.pattern.length
         current = child
       }
 
