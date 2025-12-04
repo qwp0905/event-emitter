@@ -1,9 +1,9 @@
-import { EventHandler, HandlerNode } from "./node"
+import { EventHandler, PatternMatcher } from "./node"
 
 type EventPattern = string | symbol
 
 export class EventEmitter {
-  private readonly patterns = new HandlerNode()
+  private readonly patterns = new PatternMatcher()
   private readonly permanent = new Map<symbol, Set<EventHandler>>()
   private readonly temporary = new Map<symbol, Set<EventHandler>>()
 

@@ -11,34 +11,16 @@ function normalize(pattern: string) {
   return pattern.replace(/(\*)+/g, WILDCARD)
 }
 
-export class HandlerNode {
-  private children: Nullable<Map<string, HandlerNode>> = null
-  private permanent: Nullable<Set<EventHandler>> = null
-  private temporary: Nullable<Set<EventHandler>> = null
-  private wildcard: Nullable<HandlerNode> = null
-  private failure: Nullable<Uint8Array> = null
+class HandlerNode {
+  children: Nullable<Map<string, HandlerNode>> = null
+  permanent: Nullable<Set<EventHandler>> = null
+  temporary: Nullable<Set<EventHandler>> = null
+  wildcard: Nullable<HandlerNode> = null
+  failure: Nullable<Uint8Array> = null
 
-  constructor(private pattern: string = EMPTY) {}
+  constructor(public pattern: string = EMPTY) {}
 
-  clear() {
-    this.permanent = null
-    this.temporary = null
-    this.wildcard = null
-    this.children = null
-  }
-
-  insert(pattern: string, handler: EventHandler, isTemporary: boolean = false) {
-    let current = this as HandlerNode
-    const patterns = normalize(pattern).split(WILDCARD)
-    for (let i = 0, part = patterns[0]; i < patterns.length - 1; part = patterns[++i]) {
-      const inserted = current._insert(part)
-      current = inserted.wildcard ??= new HandlerNode()
-    }
-
-    current._insert(patterns.at(-1)!, handler, isTemporary)
-  }
-
-  private match(pattern: string): string {
+  match(pattern: string): string {
     const len = Math.min(this.pattern.length, pattern.length)
     for (let i = 0; i < len; i += 1) {
       if (this.pattern[i] !== pattern[i]) {
@@ -48,45 +30,7 @@ export class HandlerNode {
     return pattern.slice(0, len)
   }
 
-  private _insert(
-    pattern: string,
-    handler?: EventHandler,
-    isTemporary: boolean = false
-  ): HandlerNode {
-    let current = this as HandlerNode
-    let remain = pattern
-
-    while (remain !== EMPTY) {
-      const prefix = remain[0]
-      const child = current.children?.get(prefix)
-      if (!child) {
-        ;(current.children ??= new Map()).set(prefix, (current = new HandlerNode(remain)))
-        break
-      }
-
-      const match = child.match(remain)
-      if (match === child.pattern) {
-        current = child
-        remain = remain.slice(match.length)
-        continue
-      }
-
-      remain = remain.slice(match.length)
-      ;(current.children ??= new Map()).set(prefix, (current = child.split(match)))
-    }
-
-    if (!handler) {
-      return current
-    }
-
-    const handlers = isTemporary
-      ? (current.temporary ??= new Set())
-      : (current.permanent ??= new Set())
-    handlers.add(handler)
-    return current
-  }
-
-  private split(match: string) {
+  split(match: string) {
     this.pattern = this.pattern.slice(match.length)
     this.failure &&= null
     const node = new HandlerNode(match)
@@ -94,7 +38,7 @@ export class HandlerNode {
     return node
   }
 
-  private _remove(handler?: EventHandler): boolean {
+  remove(handler?: EventHandler): boolean {
     if (!handler) {
       if (!this.permanent && !this.temporary) {
         return false
@@ -123,56 +67,7 @@ export class HandlerNode {
     return true
   }
 
-  remove(pattern: string, handler?: EventHandler) {
-    const patterns = normalize(pattern).split(WILDCARD)
-    const end = patterns.length - 1
-    let current = this as HandlerNode
-    const stack: Tuple<string, HandlerNode>[] = []
-
-    for (let i = 0, pattern = patterns[0]; i < patterns.length; pattern = patterns[++i]) {
-      while (pattern !== EMPTY) {
-        const prefix = pattern[0]
-        const child = current.children?.get(prefix)
-        if (!child || !pattern.startsWith(child.pattern)) {
-          return
-        }
-        stack.push([prefix, current])
-        pattern = pattern.slice(child.pattern.length)
-        current = child
-      }
-
-      if (i === end) {
-        break
-      }
-
-      if (!current.wildcard) {
-        return
-      }
-      stack.push([EMPTY, current])
-      current = current.wildcard
-    }
-
-    if (!current._remove(handler)) {
-      return
-    }
-    if (!current.shrink()) {
-      return
-    }
-
-    while (stack.length > 0) {
-      const [prefix, current] = stack.pop()!
-      if (prefix !== EMPTY && current.children?.get(prefix)?.isEmpty()) {
-        if (current.children.delete(prefix) && current.children.size === 0) {
-          current.children = null
-        }
-      }
-      if (!current.shrink()) {
-        break
-      }
-    }
-  }
-
-  private shrink() {
+  shrink() {
     if (this.wildcard?.isEmpty()) {
       this.wildcard = null
     }
@@ -209,8 +104,127 @@ export class HandlerNode {
     return !this.permanent?.size && !this.temporary?.size && !this.children && !this.wildcard
   }
 
+  getFailure(): Uint8Array {
+    if (this.failure !== null) {
+      return this.failure
+    }
+
+    const pattern = this.pattern
+    const m = pattern.length
+    const failure = new Uint8Array(m)
+    let j = 0
+
+    for (let i = 1; i < m; i += 1) {
+      while (j > 0 && pattern[i] !== pattern[j]) {
+        j = failure[j - 1]
+      }
+      if (pattern[i] === pattern[j]) {
+        j += 1
+      }
+      failure[i] = j
+    }
+
+    return (this.failure = failure)
+  }
+}
+
+export class PatternMatcher {
+  private readonly root: HandlerNode = new HandlerNode()
+
+  clear() {
+    this.root.permanent = null
+    this.root.temporary = null
+    this.root.wildcard = null
+    this.root.children = null
+  }
+
+  insert(pattern: string, handler: EventHandler, isTemporary: boolean = false) {
+    const patterns = normalize(pattern).split(WILDCARD)
+    let current = this.root as HandlerNode
+    const end = patterns.length - 1
+    for (let i = 0, remain = patterns[0]; i < patterns.length; remain = patterns[++i]) {
+      inner: while (remain !== EMPTY) {
+        const prefix = remain[0]
+        const child = current.children?.get(prefix)
+        if (!child) {
+          ;(current.children ??= new Map()).set(prefix, (current = new HandlerNode(remain)))
+          break inner
+        }
+
+        const match = child.match(remain)
+        if (match === child.pattern) {
+          current = child
+          remain = remain.slice(match.length)
+          continue inner
+        }
+
+        remain = remain.slice(match.length)
+        ;(current.children ??= new Map()).set(prefix, (current = child.split(match)))
+      }
+
+      if (i === end) {
+        break
+      }
+      current = current.wildcard ??= new HandlerNode()
+    }
+
+    const handlers = isTemporary
+      ? (current.temporary ??= new Set())
+      : (current.permanent ??= new Set())
+    handlers.add(handler)
+  }
+
+  remove(pattern: string, handler?: EventHandler) {
+    const patterns = normalize(pattern).split(WILDCARD)
+    const end = patterns.length - 1
+    let current = this.root as HandlerNode
+    const stack: Tuple<string, HandlerNode>[] = []
+
+    for (let i = 0, pattern = patterns[0]; i < patterns.length; pattern = patterns[++i]) {
+      while (pattern !== EMPTY) {
+        const prefix = pattern[0]
+        const child = current.children?.get(prefix)
+        if (!child || !pattern.startsWith(child.pattern)) {
+          return
+        }
+        stack.push([prefix, current])
+        pattern = pattern.slice(child.pattern.length)
+        current = child
+      }
+
+      if (i === end) {
+        break
+      }
+
+      if (!current.wildcard) {
+        return
+      }
+      stack.push([EMPTY, current])
+      current = current.wildcard
+    }
+
+    if (!current.remove(handler)) {
+      return
+    }
+    if (!current.shrink()) {
+      return
+    }
+
+    while (stack.length > 0) {
+      const [prefix, current] = stack.pop()!
+      if (prefix !== EMPTY && current.children?.get(prefix)?.isEmpty()) {
+        if (current.children.delete(prefix) && current.children.size === 0) {
+          current.children = null
+        }
+      }
+      if (!current.shrink()) {
+        break
+      }
+    }
+  }
+
   *patterns(): Generator<string> {
-    const stack: Tuple<string, HandlerNode>[] = [[EMPTY, this]]
+    const stack: Tuple<string, HandlerNode>[] = [[EMPTY, this.root]]
 
     while (stack.length > 0) {
       const [prefix, current] = stack.pop()!
@@ -233,33 +247,9 @@ export class HandlerNode {
     }
   }
 
-  private getFailure(): Uint8Array {
-    if (this.failure !== null) {
-      return this.failure
-    }
-
-    const pattern = this.pattern
-    const m = pattern.length
-    const failure = new Uint8Array(m)
-    let j = 0
-
-    for (let i = 1; i < m; i += 1) {
-      while (j > 0 && pattern[i] !== pattern[j]) {
-        j = failure[j - 1]
-      }
-      if (pattern[i] === pattern[j]) {
-        j += 1
-      }
-      failure[i] = j
-    }
-
-    return (this.failure = failure)
-  }
-
   call(pattern: string, args: any[]): boolean {
-    const search: Triple<string, HandlerNode, Tuple<string, HandlerNode>[]>[] = [
-      [pattern, this, []]
-    ]
+    const search: Triple<string, HandlerNode, Tuple<string, HandlerNode>[]>[] = []
+    search.push([pattern, this.root, []])
     const branches: Tuple<string, HandlerNode>[][] = []
 
     while (search.length > 0) {
@@ -353,7 +343,7 @@ export class HandlerNode {
     const patterns = normalize(pattern).split(WILDCARD)
 
     const end = patterns.length - 1
-    let current: HandlerNode = this as HandlerNode
+    let current: HandlerNode = this.root as HandlerNode
     for (let i = 0, pattern = patterns[0]; i < patterns.length; pattern = patterns[++i]) {
       while (pattern !== EMPTY) {
         const prefix = pattern[0]
@@ -386,9 +376,8 @@ export class HandlerNode {
 
   handlersCount(pattern: string) {
     const patterns = normalize(pattern).split(WILDCARD)
-
     const end = patterns.length - 1
-    let current: HandlerNode = this as HandlerNode
+    let current: HandlerNode = this.root as HandlerNode
     for (let i = 0, pattern = patterns[0]; i < patterns.length; pattern = patterns[++i]) {
       while (pattern !== EMPTY) {
         const prefix = pattern[0]

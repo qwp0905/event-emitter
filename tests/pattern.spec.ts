@@ -1,10 +1,10 @@
-import { HandlerNode } from "../src/node"
+import { PatternMatcher } from "../src/node"
 
-describe("HandlerNode", () => {
-  let node: HandlerNode
+describe("PatternMatcher", () => {
+  let node: PatternMatcher
 
   beforeEach(() => {
-    node = new HandlerNode()
+    node = new PatternMatcher()
   })
 
   it("should shrink when temporary called 1", () => {
@@ -16,7 +16,7 @@ describe("HandlerNode", () => {
     node.insert("*b*", () => {}, true)
 
     expect(node.call("abcc", [])).toBe(true)
-    expect(node.isEmpty()).toBe(true)
+    expect(node["root"].isEmpty()).toBe(true)
   })
 
   it("should shrink when temporary called 2", () => {
@@ -30,7 +30,7 @@ describe("HandlerNode", () => {
       expect(node.call(i.toString(), [])).toBe(true)
     }
 
-    expect(node.isEmpty()).toBe(true)
+    expect(node["root"].isEmpty()).toBe(true)
   })
 
   it("should remove when temporary called", () => {
@@ -48,6 +48,6 @@ describe("HandlerNode", () => {
     node.remove("*cc")
     node.remove("*b*")
 
-    expect(node.isEmpty()).toBe(true)
+    expect(node["root"].isEmpty()).toBe(true)
   })
 })
