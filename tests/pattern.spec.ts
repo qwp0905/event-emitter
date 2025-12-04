@@ -34,12 +34,12 @@ describe("PatternMatcher", () => {
   })
 
   it("should remove when temporary called", () => {
-    node.insert("abcc", () => {})
-    node.insert("a*c", () => {})
-    node.insert("*c", () => {})
-    node.insert("*", () => {})
-    node.insert("*cc", () => {})
-    node.insert("*b*", () => {})
+    node.insert("abcc", () => {}, true)
+    node.insert("a*c", () => {}, true)
+    node.insert("*c", () => {}, true)
+    node.insert("*", () => {}, true)
+    node.insert("*cc", () => {}, true)
+    node.insert("*b*", () => {}, true)
 
     node.remove("abcc")
     node.remove("a*c")

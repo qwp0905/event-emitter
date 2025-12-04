@@ -138,7 +138,7 @@ export class PatternMatcher {
     this.root.children = null
   }
 
-  insert(pattern: string, handler: EventHandler, isTemporary: boolean = false) {
+  insert(pattern: string, handler: EventHandler, isTemporary: boolean) {
     const patterns = normalize(pattern).split(WILDCARD)
     let current = this.root as HandlerNode
     const end = patterns.length - 1
