@@ -44,8 +44,8 @@ class HandlerNode {
         return false
       }
 
-      this.permanent = null
-      this.temporary = null
+      this.permanent &&= null
+      this.temporary &&= null
       return true
     }
 
@@ -98,7 +98,7 @@ class HandlerNode {
   }
 
   isEmpty() {
-    return !this.permanent?.size && !this.temporary?.size && !this.children && !this.wildcard
+    return !this.permanent && !this.temporary && !this.children && !this.wildcard
   }
 
   getFailure(): Uint8Array {
@@ -129,10 +129,10 @@ export class PatternMatcher {
   private readonly root: HandlerNode = new HandlerNode()
 
   clear() {
-    this.root.permanent = null
-    this.root.temporary = null
-    this.root.wildcard = null
-    this.root.children = null
+    this.root.permanent &&= null
+    this.root.temporary &&= null
+    this.root.wildcard &&= null
+    this.root.children &&= null
   }
 
   insert(pattern: string, handler: EventHandler, isTemporary: boolean) {
@@ -322,7 +322,7 @@ export class PatternMatcher {
         if (wildcard) {
           wildcard.permanent?.forEach((handler) => (handler(...args), (called ||= true)))
           wildcard.temporary?.forEach((handler) => (handler(...args), (called ||= true)))
-          wildcard.temporary = null
+          wildcard.temporary &&= null
           if (wildcard.isEmpty()) {
             current.wildcard = null
           }
@@ -330,7 +330,7 @@ export class PatternMatcher {
         if (prefix === EMPTY) {
           current.permanent?.forEach((handler) => (handler(...args), (called ||= true)))
           current.temporary?.forEach((handler) => (handler(...args), (called ||= true)))
-          current.temporary = null
+          current.temporary &&= null
         } else if (current.children?.get(prefix)?.isEmpty()) {
           if (current.children.delete(prefix) && current.children.size === 0) {
             current.children = null

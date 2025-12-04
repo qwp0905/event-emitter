@@ -33,7 +33,7 @@ describe("PatternMatcher", () => {
     expect(node["root"].isEmpty()).toBe(true)
   })
 
-  it("should remove when temporary called", () => {
+  it("should shrink when remove called", () => {
     node.insert("abcc", () => {}, true)
     node.insert("a*c", () => {}, true)
     node.insert("*c", () => {}, true)
@@ -48,6 +48,18 @@ describe("PatternMatcher", () => {
     node.remove("*cc")
     node.remove("*b*")
 
+    expect(node["root"].isEmpty()).toBe(true)
+  })
+
+  it("should clear", () => {
+    node.insert("abcc", () => {}, true)
+    node.insert("a*c", () => {}, true)
+    node.insert("*c", () => {}, true)
+    node.insert("*", () => {}, true)
+    node.insert("*cc", () => {}, true)
+    node.insert("*b*", () => {}, true)
+
+    node.clear()
     expect(node["root"].isEmpty()).toBe(true)
   })
 })
