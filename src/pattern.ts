@@ -26,8 +26,8 @@ export class PatternMatcher {
         const prefix = remain[cursor]
         const child = current.children?.get(prefix)
         if (!child) {
-          current.children ??= new Map()
-          current.children.set(prefix, (current = new HandlerNode(remain.slice(cursor))))
+          const children = (current.children ??= new Map())
+          children.set(prefix, (current = new HandlerNode(remain.slice(cursor))))
           break inner
         }
 
@@ -38,8 +38,8 @@ export class PatternMatcher {
           continue inner
         }
 
-        current.children ??= new Map()
-        current.children.set(prefix, (current = child.split(match)))
+        const children = (current.children ??= new Map())
+        children.set(prefix, (current = child.split(match)))
       }
 
       if (i === end) {
@@ -93,12 +93,13 @@ export class PatternMatcher {
 
     while (stack.length > 0) {
       const [prefix, current] = stack.pop()!
+      const children = current.children
       if (prefix === EMPTY) {
         if (current.wildcard?.isEmpty()) {
           current.wildcard = null
         }
-      } else if (current.children?.get(prefix)?.isEmpty()) {
-        if (current.children.delete(prefix) && current.children.size === 0) {
+      } else if (children?.get(prefix)?.isEmpty()) {
+        if (children.delete(prefix) && children.size === 0) {
           current.children = null
         }
       }
@@ -208,12 +209,14 @@ export class PatternMatcher {
             current.wildcard = null
           }
         }
+
+        const children = current.children
         if (prefix === EMPTY) {
           current.permanent?.forEach((handler) => (handler(...args), (called ||= true)))
           current.temporary?.forEach((handler) => (handler(...args), (called ||= true)))
           current.temporary &&= null
-        } else if (current.children?.get(prefix)?.isEmpty()) {
-          if (current.children.delete(prefix) && current.children.size === 0) {
+        } else if (children?.get(prefix)?.isEmpty()) {
+          if (children.delete(prefix) && children.size === 0) {
             current.children = null
           }
         }
