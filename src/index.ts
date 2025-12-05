@@ -1,4 +1,5 @@
-import { EventHandler, PatternMatcher } from "./node"
+import { EventHandler } from "./node"
+import { PatternMatcher } from "./pattern"
 
 type EventPattern = string | symbol
 

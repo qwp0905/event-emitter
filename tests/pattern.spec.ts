@@ -1,4 +1,4 @@
-import { PatternMatcher } from "../src/node"
+import { PatternMatcher } from "../src/pattern"
 
 describe("PatternMatcher", () => {
   let node: PatternMatcher
