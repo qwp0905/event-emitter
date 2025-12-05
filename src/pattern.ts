@@ -266,7 +266,7 @@ export class PatternMatcher {
     }
   }
 
-  handlersCount(pattern: string) {
+  handlersCount(pattern: string): number {
     const patterns = normalize(pattern).split(WILDCARD)
     const end = patterns.length - 1
     let current: HandlerNode = this.root as HandlerNode
@@ -276,7 +276,7 @@ export class PatternMatcher {
         const prefix = remain[cursor]
         const child = current.children?.get(prefix)
         if (!child || !remain.startsWith(child.pattern, cursor)) {
-          return
+          return 0
         }
 
         cursor += child.pattern.length
@@ -288,7 +288,7 @@ export class PatternMatcher {
       }
 
       if (!current.wildcard) {
-        return
+        return 0
       }
 
       current = current.wildcard
