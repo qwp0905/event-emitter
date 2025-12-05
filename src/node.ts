@@ -34,7 +34,8 @@ class HandlerNode {
     this.pattern = this.pattern.slice(match.length)
     this.failure &&= null
     const node = new HandlerNode(match)
-    node.children = new Map([[this.pattern[0], this]])
+    node.children = new Map()
+    node.children.set(this.pattern[0], this)
     return node
   }
 
