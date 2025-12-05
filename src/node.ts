@@ -1,8 +1,8 @@
 import { EMPTY } from "./constants"
 import { Nullable } from "./type"
 
-export interface EventHandler {
-  (...args: any[]): any
+export interface EventHandler<T extends any[] = any[], R = any> {
+  (...args: T): R
 }
 
 export class HandlerNode {

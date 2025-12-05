@@ -8,7 +8,7 @@ export class EventEmitter {
   private readonly permanent = new Map<symbol, Set<EventHandler>>()
   private readonly temporary = new Map<symbol, Set<EventHandler>>()
 
-  on(pattern: EventPattern, handler: EventHandler) {
+  on<T extends any[] = any[], R = any>(pattern: EventPattern, handler: EventHandler<T, R>): this {
     if (typeof pattern === "string") {
       this.patterns.insert(pattern, handler, false)
       return this
@@ -23,7 +23,7 @@ export class EventEmitter {
 
     return this
   }
-  once(pattern: EventPattern, handler: EventHandler) {
+  once<T extends any[] = any[], R = any>(pattern: EventPattern, handler: EventHandler<T, R>): this {
     if (typeof pattern === "string") {
       this.patterns.insert(pattern, handler, true)
       return this
@@ -37,7 +37,7 @@ export class EventEmitter {
     }
     return this
   }
-  off(pattern: EventPattern, handler: EventHandler) {
+  off<T extends any[] = any[], R = any>(pattern: EventPattern, handler: EventHandler<T, R>): this {
     if (typeof pattern === "string") {
       this.patterns.remove(pattern, handler)
       return this
