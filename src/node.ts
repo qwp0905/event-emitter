@@ -15,9 +15,10 @@ export class HandlerNode {
   constructor(public pattern: string = EMPTY) {}
 
   match(pattern: string, cursor: number): string {
-    const len = Math.min(this.pattern.length, pattern.length - cursor)
+    const current = this.pattern
+    const len = Math.min(current.length, pattern.length - cursor)
     for (let i = 0, j = cursor; i < len; i += 1, j += 1) {
-      if (this.pattern[i] !== pattern[j]) {
+      if (current[i] !== pattern[j]) {
         return pattern.slice(cursor, j)
       }
     }
