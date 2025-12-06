@@ -104,8 +104,8 @@ export class HandlerNode {
     const pattern = this.pattern
     const m = pattern.length
     const failure = new Uint8Array(m)
-    let j = 0
 
+    let j = 0
     for (let i = 1; i < m; i += 1) {
       while (j > 0 && pattern[i] !== pattern[j]) {
         j = failure[j - 1]
