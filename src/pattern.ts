@@ -151,7 +151,9 @@ export class PatternMatcher {
       const child = current.children?.get(prefix)
 
       const hasChild = child && pattern.startsWith(child.pattern, cursor)
-      if (!current.wildcard) {
+      const wildcard = current.wildcard
+
+      if (!wildcard) {
         if (!hasChild) {
           continue
         }
@@ -166,13 +168,13 @@ export class PatternMatcher {
       if (hasChild) {
         search.push([cursor + child.pattern.length, child, []])
       }
-      if (!current.wildcard.children) {
+      if (!wildcard.children) {
         continue
       }
 
-      for (const child of current.wildcard.children.values()) {
+      for (const child of wildcard.children.values()) {
         const childPattern = child.pattern
-        let wildcard: Tuple<string, HandlerNode>
+        let item: Tuple<string, HandlerNode>
 
         const failure = child.getFailure()
         const m = childPattern.length
@@ -187,8 +189,8 @@ export class PatternMatcher {
             continue kmp
           }
 
-          wildcard ??= [childPattern[0], current.wildcard]
-          search.push([i + 1, child, [wildcard]])
+          item ??= [childPattern[0], wildcard]
+          search.push([i + 1, child, [item]])
           j = failure[j - 1]
         }
       }
