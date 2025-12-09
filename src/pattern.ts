@@ -116,7 +116,7 @@ export class PatternMatcher {
       const [prefix, current] = stack.pop()!
       const pattern = prefix.concat(current.pattern)
 
-      if (!!current.temporary?.size || !!current.permanent?.size) {
+      if (!!current.temporary || !!current.permanent) {
         yield pattern
       }
 
