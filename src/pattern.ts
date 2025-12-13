@@ -3,7 +3,7 @@ import { EventHandler, HandlerNode } from "./node"
 import { Triple, Tuple } from "./type"
 
 function normalize(pattern: string) {
-  return pattern.replace(/(\*)+/g, WILDCARD)
+  return pattern.replace(/\*+/g, WILDCARD)
 }
 
 export class PatternMatcher {
